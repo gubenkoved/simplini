@@ -1,0 +1,20 @@
+# Same as Black
+line-length = 88
+
+# Assume Python 3.10+
+target-version = "py310"
+
+[lint]
+# Enable flake8-bugbear (`B`) rules
+select = ["E", "F", "B", "I"]
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.isort]
+known-first-party = ["simplini"]
+combine-as-imports = true
+
+[lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]

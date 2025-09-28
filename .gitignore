@@ -1,0 +1,8 @@
+.venv
+.ruff_cache
+*.pyc
+*.egg-info
+dist
+.idea
+.tox
+.python-version
