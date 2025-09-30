@@ -119,19 +119,39 @@ class ParsingTestCases(CaseBase):
 
 class InvalidConfigParsingCases(CaseBase):
     def test_not_closed_literal(self):
-        fixture_path = os.path.join(FIXTURES_DIR, "invalid-not-closed-literal.ini")
+        path = self.gen_temp_config('value = "this is invalid\n')
 
-        self.assertRaises(
+        self.assertRaisesRegex(
             ParsingError,
-            lambda: IniConfig.load(fixture_path),
+            "New line encountered before closing quoted string",
+            IniConfig.load,
+            path,
+        )
+
+    def test_not_closed_literal_no_new_line(self):
+        path = self.gen_temp_config('value = "this is invalid')
+
+        self.assertRaisesRegex(
+            ParsingError,
+            "EOF encountered before closing quoted string",
+            IniConfig.load,
+            path,
         )
 
     def test_not_closed_section(self):
-        fixture_path = os.path.join(FIXTURES_DIR, "invalid-not-closed-section.ini")
+        config = "[this-is-not-valid-section\n"
+        path = self.gen_temp_config(config)
 
-        self.assertRaises(
-            ParsingError,
-            lambda: IniConfig.load(fixture_path),
+        self.assertRaisesRegex(
+            ParsingError, 'Expected "]", but encountered new line', IniConfig.load, path
+        )
+
+    def test_not_closed_section_no_new_line(self):
+        config = "[this-is-not-valid-section"
+        path = self.gen_temp_config(config)
+
+        self.assertRaisesRegex(
+            ParsingError, 'Expected "]", but encountered EOF', IniConfig.load, path
         )
 
     def test_invalid_escape_sequence(self):
@@ -144,14 +164,6 @@ class InvalidConfigParsingCases(CaseBase):
         for case in cases:
             path = self.gen_temp_config(case)
 
-            # TODO: enhance reporting parsing errors so that we can
-            #  report back better error messages instead of falling back
-            #  to very generic ones
-            #
-            # self.assertRaisesRegex(
-            #     ParsingError,
-            #     "Invalid escape sequence",
-            #     lambda: IniConfig.load(path)
-            # )
-
-            self.assertRaises(ParsingError, IniConfig.load, path)
+            self.assertRaisesRegex(
+                ParsingError, "Unknown escape sequence", IniConfig.load, path
+            )

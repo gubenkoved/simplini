@@ -17,21 +17,34 @@ class ParsingError(Exception):
 
 
 class RecursiveDescentParserBase:
-    def __init__(self, text_io):
-        self.text_io = text_io
+    def __init__(self, text_io: TextIOBase):
+        self.text_io: TextIOBase = text_io
+        self.deepest_error: ParsingError | None = None
 
-    def parsing_error(self, message):
+    def parsing_error(self, message: str) -> ParsingError:
         position = self.text_io.tell()
         message += " (position: %d)" % position
         error = ParsingError(message)
         error.position = position
+
+        # update deepest error
+        if self.deepest_error is None or position > self.deepest_error.position:
+            self.deepest_error = error
+
         return error
 
     def expect(self, expected: str) -> str:
         char = self.text_io.read(1)
 
         if char != expected:
-            raise self.parsing_error(f'Expected "{expected}", but encountered "{char}"')
+            if char == "\n":
+                actual = "new line"
+            elif char == "":
+                actual = "EOF"
+            else:
+                actual = f'"{char}"'
+
+            raise self.parsing_error(f'Expected "{expected}", but encountered {actual}')
 
         return char
 
@@ -195,7 +208,11 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
                 next_char = self.text_io.read(1)
                 value += self.resolve_escape_sequence(char + next_char)
             elif char == self.new_line:
-                raise self.parsing_error("New line in quoted string is forbidden")
+                raise self.parsing_error(
+                    "New line encountered before closing quoted string"
+                )
+            elif char == "":
+                raise self.parsing_error("EOF encountered before closing quoted string")
             else:  # normal character
                 if char == self.quote_character:
                     break
@@ -349,15 +366,9 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
         return comment.strip()
 
     def parse_empty_line(self) -> str:
-        line = self.text_io.readline()
-
-        if not line:
-            raise self.parsing_error("Expected empty line, but encountered EOF")
-
-        if line.strip():
-            raise self.parsing_error("Expected empty line")
-
-        return line
+        self.accept_multiple(self.is_whitespace)
+        self.expect(self.new_line)
+        return ""
 
     def parse_comments(self) -> list[str]:
         def parse_comment_or_empty_line() -> tuple[int, str]:
@@ -399,7 +410,11 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
 
         return section
 
-    def parse_main(self, config: IniConfigBase):
+    # TODO: when our parsing error does end up being raised there it would
+    #  be nice to extend it with the context showing the line from the config
+    #  and marker where the reading head is (probably making it configurable
+    #  makes sense so that we do not leak config?)
+    def parse(self, config: IniConfigBase):
         # first comments need a little bit edge-case processing because of the
         # inherent ambiguity as they apply to the:
         # * next option if it exists,
@@ -440,17 +455,6 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
 
         return config
 
-    # TODO: when our parsing error does end up being raised there it would
-    #  be nice to extend it with the context showing the line from the config
-    #  and marker where the reading head is (probably making it configurable
-    #  makes sense so that we do not leak config?)
-    def parse_into(self, instance: IniConfigBase):
-        try:
-            self.parse_main(instance)
-        except ParsingError:
-            LOGGER.debug("Parsing error occurred", exc_info=True)
-            raise
-
 
 class IniParser:
     def __init__(self):
@@ -482,4 +486,9 @@ class IniParser:
             escape_sequences=self.escape_sequences,
             new_line=self.new_line,
         )
-        parser.parse_into(instance)
+
+        try:
+            parser.parse(instance)
+        except ParsingError as err:
+            assert parser.deepest_error is not None
+            raise parser.deepest_error from err
