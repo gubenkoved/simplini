@@ -19,7 +19,7 @@ class CaseBase(unittest.TestCase):
             return f.read()
 
     def assertExpectedConfig(self, expected_config_path: str, actual_config: str):
-        if os.environ.get("UPDATED_EXPECTED_CONFIGS") in ("y", "1", "yes"):
+        if os.environ.get("UPDATE_EXPECTED_CONFIGS") in ("y", "1", "yes"):
             LOGGER.warning("updating expected config at %s", expected_config_path)
             with open(expected_config_path, "w") as f:
                 f.write(actual_config)

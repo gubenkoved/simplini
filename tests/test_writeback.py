@@ -70,3 +70,9 @@ class WriteBackCases(CaseBase):
                 FIXTURES_DIR, "comments-with-empty-comment-lines-writeback.ini"
             ),
         )
+
+    def test_escape_sequences(self):
+        self.generic_writeback_test(
+            os.path.join(FIXTURES_DIR, "escape-sequences.ini"),
+            os.path.join(FIXTURES_DIR, "escape-sequences-writeback.ini"),
+        )

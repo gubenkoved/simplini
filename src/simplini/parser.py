@@ -129,7 +129,9 @@ class RecursiveDescentParserBase:
         self.text_io.seek(position)
         return peeked
 
-    def hinted_choice(self, hinted_parse_fns: list[tuple[str, Callable[[], T]]]) -> T:
+    def hinted_choice(
+        self, hinted_parse_fns: list[tuple[str | None, Callable[[], T]]]
+    ) -> T:
         position = self.text_io.tell()
         last_error = None
 
@@ -154,13 +156,30 @@ class RecursiveDescentParserBase:
 # TODO: provide more context in ParsingError exceptions
 #  include the parsing stack, and position in the file (line/column)
 class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
-    def __init__(self, text_io: TextIOBase):
+    def __init__(
+        self,
+        text_io: TextIOBase,
+        allow_unquoted_values: bool,
+        key_value_separator: str,
+        comment_separator: str,
+        escape_character: str,
+        quote_character: str,
+        escape_sequences: dict[str, str],
+        new_line: str,
+    ):
         super().__init__(text_io)
-        self.allow_unquoted_values = True
-        self.key_value_separator = "="
-        self.comment_separator = "#"
-        self.escape_character = "\\"
-        self.quote_character = '"'
+        self.allow_unquoted_values = allow_unquoted_values
+        self.key_value_separator = key_value_separator
+        self.comment_separator = comment_separator
+        self.escape_character = escape_character
+        self.quote_character = quote_character
+        self.escape_sequences = escape_sequences
+        self.new_line = new_line
+
+    def resolve_escape_sequence(self, sequence: str) -> str:
+        if sequence not in self.escape_sequences:
+            raise self.parsing_error(f"Unknown escape sequence: {sequence}")
+        return self.escape_sequences[sequence]
 
     def parse_quoted_string(self) -> str:
         self.parse_whitespaces()
@@ -174,8 +193,8 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
 
             if char == self.escape_character:
                 next_char = self.text_io.read(1)
-                value += next_char
-            elif char == "\n":
+                value += self.resolve_escape_sequence(char + next_char)
+            elif char == self.new_line:
                 raise self.parsing_error("New line in quoted string is forbidden")
             else:  # normal character
                 if char == self.quote_character:
@@ -201,7 +220,7 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
 
             if char == self.escape_character:
                 next_char = self.text_io.read(1)
-                value += next_char
+                value += self.resolve_escape_sequence(char + next_char)
             else:  # normal character:
                 if char == self.quote_character:
                     # check if it's the end of the triple-quoted string
@@ -226,7 +245,7 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
         self.parse_whitespaces()
 
         _, value = self.accept_multiple(
-            lambda c: c not in ("\n", self.comment_separator),
+            lambda c: c not in (self.new_line, self.comment_separator),
             # even if nothing is accepted we consider the value to be empty
         )
 
@@ -440,16 +459,27 @@ class IniParser:
         self.comment_separator = "#"
         self.escape_character = "\\"
         self.quote_character = '"'
+        self.escape_sequences = {
+            r"\n": "\n",
+            r"\t": "\t",
+            r"\\": "\\",
+            r"\"": '"',
+        }
+        self.new_line = "\n"
 
     def parse(
         self,
         text_io: TextIOBase,
         instance: IniConfigBase,
     ) -> None:
-        parser = RecursiveDescentIniParserImpl(text_io)
-        parser.allow_unquoted_values = self.allow_unquoted_values
-        parser.key_value_separator = self.key_value_separator
-        parser.comment_separator = self.comment_separator
-        parser.escape_character = self.escape_character
-        parser.quote_character = self.quote_character
+        parser = RecursiveDescentIniParserImpl(
+            text_io,
+            allow_unquoted_values=self.allow_unquoted_values,
+            key_value_separator=self.key_value_separator,
+            comment_separator=self.comment_separator,
+            escape_character=self.escape_character,
+            quote_character=self.quote_character,
+            escape_sequences=self.escape_sequences,
+            new_line=self.new_line,
+        )
         parser.parse_into(instance)
