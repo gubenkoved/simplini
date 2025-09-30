@@ -10,10 +10,28 @@ T = TypeVar("T")
 LOGGER = logging.getLogger(__name__)
 
 
+class PositionContext:
+    def __init__(
+        self,
+        line: str,
+        line_number: int,
+        column_number: int,
+    ):
+        self.line = line
+        self.line_number = line_number
+        self.column_number = column_number
+
+
 class ParsingError(Exception):
     def __init__(self, message: str) -> None:
         super().__init__(message)
-        self.position = None
+        self.message: str = message
+        self.position: int | None = None
+        self.position_context: PositionContext | None = None
+
+    def extend_message(self, message: str) -> None:
+        self.message += message
+        self.args = (self.args[0] + message,) + self.args[1:]
 
 
 class RecursiveDescentParserBase:
@@ -23,7 +41,7 @@ class RecursiveDescentParserBase:
 
     def parsing_error(self, message: str) -> ParsingError:
         position = self.text_io.tell()
-        message += " (position: %d)" % position
+
         error = ParsingError(message)
         error.position = position
 
@@ -96,7 +114,6 @@ class RecursiveDescentParserBase:
 
         return True, chars
 
-    # TODO: make sure to make it obvious that zero or multiple occurrences are accepted
     def multiple(self, parse_fn: Callable[[], T]) -> list[T]:
         results = []
 
@@ -166,8 +183,6 @@ class RecursiveDescentParserBase:
         raise last_error
 
 
-# TODO: provide more context in ParsingError exceptions
-#  include the parsing stack, and position in the file (line/column)
 class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
     def __init__(
         self,
@@ -410,10 +425,6 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
 
         return section
 
-    # TODO: when our parsing error does end up being raised there it would
-    #  be nice to extend it with the context showing the line from the config
-    #  and marker where the reading head is (probably making it configurable
-    #  makes sense so that we do not leak config?)
     def parse(self, config: IniConfigBase):
         # first comments need a little bit edge-case processing because of the
         # inherent ambiguity as they apply to the:
@@ -471,6 +482,44 @@ class IniParser:
         }
         self.new_line = "\n"
 
+    @staticmethod
+    def position_context(text_io: TextIOBase, position: int) -> PositionContext | None:
+        text_io.seek(0)
+
+        read = 0
+        line_number = 0
+        prev_line = ""
+
+        while True:
+            line_number += 1
+            line = text_io.readline()
+
+            if position < read + len(line):
+                return PositionContext(
+                    line=line,
+                    line_number=line_number,
+                    column_number=position - read + 1,
+                )
+
+            read += len(line)
+
+            if not line:
+                break
+
+            prev_line = line
+
+        # edge case -- position points right after the last character
+        # of the text
+        if position == read + 1:
+            return PositionContext(
+                line=prev_line,
+                line_number=line_number - 1,
+                column_number=len(prev_line),
+            )
+
+        # unable to determine
+        return None
+
     def parse(
         self,
         text_io: TextIOBase,
@@ -490,5 +539,33 @@ class IniParser:
         try:
             parser.parse(instance)
         except ParsingError as err:
-            assert parser.deepest_error is not None
-            raise parser.deepest_error from err
+            effective: ParsingError = parser.deepest_error
+
+            assert effective is not None
+
+            position_context = self.position_context(
+                text_io,
+                effective.position,
+            )
+
+            if position_context:
+                effective.position_context = position_context
+
+                quotation_prefix = "> "
+
+                position_message = (
+                    f"Line {position_context.line_number}, "
+                    f"Column {position_context.column_number}, "
+                    f"Position {effective.position}\n"
+                )
+                position_message += quotation_prefix
+                position_message += position_context.line.rstrip("\n") + "\n"
+                position_message += " " * (
+                    position_context.column_number - 1 + len(quotation_prefix)
+                )
+                position_message += "^"
+                position_message += "\n"
+
+                effective.extend_message("\n\n" + position_message)
+
+            raise effective from err

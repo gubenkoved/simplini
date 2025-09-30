@@ -121,12 +121,21 @@ class InvalidConfigParsingCases(CaseBase):
     def test_not_closed_literal(self):
         path = self.gen_temp_config('value = "this is invalid\n')
 
-        self.assertRaisesRegex(
+        with self.assertRaisesRegex(
             ParsingError,
-            "New line encountered before closing quoted string",
-            IniConfig.load,
-            path,
-        )
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 1, Column 25, Position 26",
+        ) as ctx:
+            IniConfig.load(path)
+
+        # check position context
+        self.assertIsNotNone(ctx.exception)
+        self.assertEqual(26, ctx.exception.position)
+        self.assertIsNotNone(ctx.exception.position_context)
+        self.assertEqual(1, ctx.exception.position_context.line_number)
+        self.assertEqual(25, ctx.exception.position_context.column_number)
 
     def test_not_closed_literal_no_new_line(self):
         path = self.gen_temp_config('value = "this is invalid')
