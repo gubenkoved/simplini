@@ -69,13 +69,12 @@ class RecursiveDescentParserBase:
     def accept_multiple(
         self,
         value_or_predicate: Callable[[str], bool] | str,
-        default_value: str | None = None,
-    ) -> tuple[bool, str | None]:
+    ) -> tuple[bool, str]:
         chars = ""
         accepted, char = self.accept(value_or_predicate)
 
         if not accepted:
-            return False, default_value
+            return False, chars
 
         while accepted:
             assert char is not None
@@ -229,7 +228,6 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
         _, value = self.accept_multiple(
             lambda c: c not in ("\n", self.comment_separator),
             # even if nothing is accepted we consider the value to be empty
-            default_value="",
         )
 
         assert value is not None
@@ -301,8 +299,8 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
     def is_whitespace(self, char: str) -> bool:
         return char in (" ", "\t")
 
-    def parse_whitespaces(self):
-        self.accept_multiple(self.is_whitespace)
+    def parse_whitespaces(self) -> str:
+        return self.accept_multiple(self.is_whitespace)[1]
 
     def parse_section_body(self, section: IniConfigSection) -> None:
         options = self.multiple(self.parse_option)
@@ -323,7 +321,6 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
 
         _, comment = self.accept_multiple(
             lambda c: c != "\n",
-            default_value="",
         )
 
         # accept new line if present as well
@@ -369,7 +366,6 @@ class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
 
         _, section_name = self.accept_multiple(
             lambda c: c not in ("]", "\n"),
-            default_value="",
         )
 
         if not section_name:
