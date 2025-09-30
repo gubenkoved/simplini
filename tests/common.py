@@ -14,6 +14,12 @@ class CaseBase(unittest.TestCase):
                 self.addCleanup(os.unlink, tmp.name)
             return tmp.name
 
+    def gen_temp_config(self, content: str) -> str:
+        path = self.get_temp_path()
+        with open(path, "w") as f:
+            f.write(content)
+        return path
+
     def get_text(self, path: str) -> str:
         with open(path, "r") as f:
             return f.read()

@@ -133,3 +133,25 @@ class InvalidConfigParsingCases(CaseBase):
             ParsingError,
             lambda: IniConfig.load(fixture_path),
         )
+
+    def test_invalid_escape_sequence(self):
+        cases = [
+            r'value = "foo\=bar"',
+            r'value = "foo\xbar"',
+            r'value = "foo\0bar"',
+        ]
+
+        for case in cases:
+            path = self.gen_temp_config(case)
+
+            # TODO: enhance reporting parsing errors so that we can
+            #  report back better error messages instead of falling back
+            #  to very generic ones
+            #
+            # self.assertRaisesRegex(
+            #     ParsingError,
+            #     "Invalid escape sequence",
+            #     lambda: IniConfig.load(path)
+            # )
+
+            self.assertRaises(ParsingError, IniConfig.load, path)
