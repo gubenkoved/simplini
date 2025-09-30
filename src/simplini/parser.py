@@ -154,7 +154,7 @@ class RecursiveDescentParserBase:
 
 # TODO: provide more context in ParsingError exceptions
 #  include the parsing stack, and position in the file (line/column)
-class IniParser(RecursiveDescentParserBase):
+class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
     def __init__(self, text_io: TextIOBase):
         super().__init__(text_io)
         self.allow_unquoted_values = True
@@ -435,3 +435,25 @@ class IniParser(RecursiveDescentParserBase):
         except ParsingError:
             LOGGER.debug("Parsing error occurred", exc_info=True)
             raise
+
+
+class IniParser:
+    def __init__(self):
+        self.allow_unquoted_values = True
+        self.key_value_separator = "="
+        self.comment_separator = "#"
+        self.escape_character = "\\"
+        self.quote_character = '"'
+
+    def parse(
+        self,
+        text_io: TextIOBase,
+        instance: IniConfigBase,
+    ) -> None:
+        parser = RecursiveDescentIniParserImpl(text_io)
+        parser.allow_unquoted_values = self.allow_unquoted_values
+        parser.key_value_separator = self.key_value_separator
+        parser.comment_separator = self.comment_separator
+        parser.escape_character = self.escape_character
+        parser.quote_character = self.quote_character
+        parser.parse_into(instance)

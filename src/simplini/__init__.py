@@ -15,12 +15,14 @@ class IniConfig(IniConfigBase):
         with open(path, "w", encoding=self.encoding) as file:
             self.renderer.render(file, self)
 
-    # TODO: allow changes in parser, also allow to bundle parser with IniConfig
-    #  together (probably), the same as renderer
     @staticmethod
-    def load(path: str, encoding: str = "utf-8") -> "IniConfig":
+    def load(
+        path: str,
+        encoding: str = "utf-8",
+        parser: IniParser | None = None,
+    ) -> "IniConfig":
+        parser = parser or IniParser()
         with open(path, "r", encoding=encoding) as file:
-            parser = IniParser(file)
             config = IniConfig()
-            parser.parse_into(config)
+            parser.parse(file, config)
             return config
