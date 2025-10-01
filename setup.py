@@ -17,6 +17,14 @@ def get_long_description():
         return text
 
 
+def read_version():
+    version_ns = {}
+    version_file = os.path.join("src", "simplini", "_version.py")
+    with open(version_file, encoding="utf-8") as f:
+        exec(f.read(), version_ns)
+    return version_ns["__version__"]
+
+
 def get_git_commit():
     """Return git commit hash or None if not available.
 
@@ -50,7 +58,7 @@ if commit_hash:
 
 setup(
     name="simplini",
-    version=os.environ.get("PACKAGE_VERSION", "0.0.1+dev"),
+    version=read_version(),
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=[],
