@@ -22,6 +22,9 @@ class IniConfig(IniConfigBase):
         parser: IniParser | None = None,
     ) -> "IniConfig":
         parser = parser or IniParser()
+
+        # note that by default text reader will translate new lines into
+        # LF-style even on Windows with CRLF new lines
         with open(path, "r", encoding=encoding) as file:
             config = IniConfig()
             parser.parse(file, config)

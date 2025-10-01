@@ -14,9 +14,9 @@ class CaseBase(unittest.TestCase):
                 self.addCleanup(os.unlink, tmp.name)
             return tmp.name
 
-    def gen_temp_config(self, content: str) -> str:
+    def gen_temp_config(self, content: str, newline: str | None = None) -> str:
         path = self.get_temp_path()
-        with open(path, "w") as f:
+        with open(path, "w", newline=newline) as f:
             f.write(content)
         return path
 

@@ -56,7 +56,9 @@ class RecursiveDescentParserBase:
 
         if char != expected:
             if char == "\n":
-                actual = "new line"
+                actual = "LF"
+            elif char == "\r":
+                actual = "CR"
             elif char == "":
                 actual = "EOF"
             else:
@@ -484,41 +486,49 @@ class IniParser:
 
     @staticmethod
     def position_context(text_io: TextIOBase, position: int) -> PositionContext | None:
-        text_io.seek(0)
+        fd = text_io.fileno()
 
-        read = 0
-        line_number = 0
-        prev_line = ""
+        # re-open file w/o automatic new-line conversion so that
+        # position is relevant on platforms where new lines are of different
+        # len from Unix style (LF)
+        with open(
+            fd, mode="r", encoding=text_io.encoding, newline="", closefd=False
+        ) as raw:
+            raw.seek(0)
 
-        while True:
-            line_number += 1
-            line = text_io.readline()
+            read = 0
+            line_number = 0
+            prev_line = ""
 
-            if position < read + len(line):
+            while True:
+                line_number += 1
+                line = raw.readline()
+
+                if position < read + len(line):
+                    return PositionContext(
+                        line=line,
+                        line_number=line_number,
+                        column_number=position - read + 1,
+                    )
+
+                read += len(line)
+
+                if not line:
+                    break
+
+                prev_line = line
+
+            # edge case -- position points right after
+            # the last character of the text
+            if position == read:
                 return PositionContext(
-                    line=line,
-                    line_number=line_number,
-                    column_number=position - read + 1,
+                    line=prev_line,
+                    line_number=line_number - 1,
+                    column_number=len(prev_line),
                 )
 
-            read += len(line)
-
-            if not line:
-                break
-
-            prev_line = line
-
-        # edge case -- position points right after the last character
-        # of the text
-        if position == read + 1:
-            return PositionContext(
-                line=prev_line,
-                line_number=line_number - 1,
-                column_number=len(prev_line),
-            )
-
-        # unable to determine
-        return None
+            # unable to determine
+            return None
 
     def parse(
         self,

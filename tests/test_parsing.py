@@ -119,20 +119,27 @@ class ParsingTestCases(CaseBase):
 
 class InvalidConfigParsingCases(CaseBase):
     def test_not_closed_literal(self):
-        path = self.gen_temp_config('value = "this is invalid\n')
+        path = self.gen_temp_config(
+            'value = "this is invalid\n',
+            # use Unix style new lines for all platforms, so that test
+            # can report same positions
+            newline="\n",
+        )
 
         with self.assertRaisesRegex(
             ParsingError,
             "(?s)"  # dotall flag
             "New line encountered before closing quoted string"
             ".+"
-            "Line 1, Column 25, Position 26",
+            # depending on the platform exact location in the file is
+            # different due to different len of the new lines
+            "Line 1, Column 25, Position 25",
         ) as ctx:
             IniConfig.load(path)
 
         # check position context
         self.assertIsNotNone(ctx.exception)
-        self.assertEqual(26, ctx.exception.position)
+        self.assertEqual(25, ctx.exception.position)
         self.assertIsNotNone(ctx.exception.position_context)
         self.assertEqual(1, ctx.exception.position_context.line_number)
         self.assertEqual(25, ctx.exception.position_context.column_number)
@@ -152,7 +159,7 @@ class InvalidConfigParsingCases(CaseBase):
         path = self.gen_temp_config(config)
 
         self.assertRaisesRegex(
-            ParsingError, 'Expected "]", but encountered new line', IniConfig.load, path
+            ParsingError, 'Expected "]", but encountered LF', IniConfig.load, path
         )
 
     def test_not_closed_section_no_new_line(self):
@@ -176,3 +183,22 @@ class InvalidConfigParsingCases(CaseBase):
             self.assertRaisesRegex(
                 ParsingError, "Unknown escape sequence", IniConfig.load, path
             )
+
+    def test_not_closed_literal_on_second_line(self):
+        path = self.gen_temp_config(
+            'foo = bar\nvalue = "this is invalid\n',
+            # use Unix style new lines for all platforms, so that test
+            # can report same positions
+            newline="\n",
+        )
+        with self.assertRaisesRegex(
+            ParsingError,
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 2, Column 25, Position 35",
+        ):
+            IniConfig.load(path)
+
+    # TODO: focused test for error reporting for Windows platform with
+    #  CRLF new lines style
