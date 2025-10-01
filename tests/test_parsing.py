@@ -131,8 +131,6 @@ class InvalidConfigParsingCases(CaseBase):
             "(?s)"  # dotall flag
             "New line encountered before closing quoted string"
             ".+"
-            # depending on the platform exact location in the file is
-            # different due to different len of the new lines
             "Line 1, Column 25, Position 25",
         ) as ctx:
             IniConfig.load(path)
@@ -143,6 +141,22 @@ class InvalidConfigParsingCases(CaseBase):
         self.assertIsNotNone(ctx.exception.position_context)
         self.assertEqual(1, ctx.exception.position_context.line_number)
         self.assertEqual(25, ctx.exception.position_context.column_number)
+
+    def test_not_closed_literal_crlf(self):
+        path = self.gen_temp_config(
+            'value = "this is invalid\n',
+            # force Windows style new lines (CRLF)
+            newline="\r\n",
+        )
+
+        with self.assertRaisesRegex(
+            ParsingError,
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 1, Column 26, Position 26",
+        ):
+            IniConfig.load(path)
 
     def test_not_closed_literal_no_new_line(self):
         path = self.gen_temp_config('value = "this is invalid')
@@ -200,5 +214,17 @@ class InvalidConfigParsingCases(CaseBase):
         ):
             IniConfig.load(path)
 
-    # TODO: focused test for error reporting for Windows platform with
-    #  CRLF new lines style
+    def test_not_closed_literal_on_second_line_crlf(self):
+        path = self.gen_temp_config(
+            'foo = bar\nvalue = "this is invalid\n',
+            # force Windows style new lines (CRLF)
+            newline="\r\n",
+        )
+        with self.assertRaisesRegex(
+            ParsingError,
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 2, Column 26, Position 37",
+        ):
+            IniConfig.load(path)
