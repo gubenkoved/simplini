@@ -16,10 +16,12 @@ class PositionContext:
         line: str,
         line_number: int,
         column_number: int,
+        lines_before: list[str] | None = None,
     ):
         self.line = line
         self.line_number = line_number
         self.column_number = column_number
+        self.lines_before = lines_before
 
 
 class ParsingError(Exception):
@@ -485,7 +487,11 @@ class IniParser:
         self.new_line = "\n"
 
     @staticmethod
-    def position_context(text_io: TextIOBase, position: int) -> PositionContext | None:
+    def position_context(
+        text_io: TextIOBase,
+        position: int,
+        context_lines: int = 1,
+    ) -> PositionContext | None:
         fd = text_io.fileno()
 
         # re-open file w/o automatic new-line conversion so that
@@ -497,34 +503,26 @@ class IniParser:
             raw.seek(0)
 
             read = 0
-            line_number = 0
-            prev_line = ""
-
-            while True:
-                line_number += 1
-                line = raw.readline()
-
+            lines = raw.readlines()
+            for line_idx, line in enumerate(lines):
                 if position < read + len(line):
                     return PositionContext(
                         line=line,
-                        line_number=line_number,
+                        line_number=line_idx + 1,
                         column_number=position - read + 1,
+                        lines_before=lines[line_idx - context_lines : line_idx],
                     )
 
                 read += len(line)
-
-                if not line:
-                    break
-
-                prev_line = line
 
             # edge case -- position points right after
             # the last character of the text
             if position == read:
                 return PositionContext(
-                    line=prev_line,
-                    line_number=line_number - 1,
-                    column_number=len(prev_line),
+                    line=lines[-1],
+                    line_number=line_idx + 1,
+                    column_number=len(lines[-1]),
+                    lines_before=lines[-1 - context_lines : -1],
                 )
 
             # unable to determine
@@ -561,20 +559,25 @@ class IniParser:
             if position_context:
                 effective.position_context = position_context
 
-                quotation_prefix = "> "
+                error_marker = "> "
+                padding = " " * len(error_marker)
 
-                position_message = (
+                position_message = padding + "..." + "\n"
+                for line_before in position_context.lines_before:
+                    position_message += padding + line_before
+
+                position_message += error_marker
+                position_message += position_context.line.rstrip("\n") + "\n"
+                position_message += " " * (
+                    position_context.column_number - 1 + len(error_marker)
+                )
+                position_message += "^\n"
+
+                position_message += (
                     f"Line {position_context.line_number}, "
                     f"Column {position_context.column_number}, "
                     f"Position {effective.position}\n"
                 )
-                position_message += quotation_prefix
-                position_message += position_context.line.rstrip("\n") + "\n"
-                position_message += " " * (
-                    position_context.column_number - 1 + len(quotation_prefix)
-                )
-                position_message += "^"
-                position_message += "\n"
 
                 effective.extend_message("\n\n" + position_message)
 
