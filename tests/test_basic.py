@@ -122,3 +122,25 @@ class BasicCases(CaseBase):
 
         bar_section = config2.sections["bar"]
         self.assertEqual("bar", bar_section["foo"].value)
+
+    def test_config_as_dict(self):
+        config = IniConfig()
+
+        config.unnamed_section.set("foo", "bar")
+
+        foo_sect = config.ensure_section("foo")
+        foo_sect.set("val1", "here")
+        foo_sect.set("val2", "here2")
+
+        self.assertEqual(
+            {
+                "": {
+                    "foo": "bar",
+                },
+                "foo": {
+                    "val1": "here",
+                    "val2": "here2",
+                },
+            },
+            config.as_dict(),
+        )

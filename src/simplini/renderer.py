@@ -69,7 +69,7 @@ class IniConfigRenderer:
         text_io.write('"""')
 
     def render(self, text_io: TextIOBase, config: IniConfigBase) -> None:
-        if not config.unnamed_section.is_empty:
+        if config.unnamed_section.options or config.unnamed_section.comment:
             self.write_section(text_io, config.unnamed_section)
 
         for section in config.sections.values():
