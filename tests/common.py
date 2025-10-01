@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 import unittest
+from typing import Optional
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,8 +18,8 @@ class CaseBase(unittest.TestCase):
     def gen_temp_config(
         self,
         content: str,
-        newline: str | None = None,
-        encoding: str | None = "utf-8",
+        newline: Optional[str] = None,
+        encoding: Optional[str] = "utf-8",
     ) -> str:
         path = self.get_temp_path()
         with open(path, "w", newline=newline, encoding=encoding) as f:
