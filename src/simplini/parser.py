@@ -19,8 +19,11 @@ class PositionContext:
         lines_before: list[str] | None = None,
     ):
         self.line = line
+        # 1-based line number of the line
         self.line_number = line_number
+        # 1-based position in the current line
         self.column_number = column_number
+        # zero or multiple lines before the current line
         self.lines_before = lines_before
 
 
@@ -187,7 +190,7 @@ class RecursiveDescentParserBase:
         raise last_error
 
 
-class RecursiveDescentIniParserImpl(RecursiveDescentParserBase):
+class IniParserImpl(RecursiveDescentParserBase):
     def __init__(
         self,
         text_io: TextIOBase,
@@ -498,26 +501,40 @@ class IniParser:
         # position is relevant on platforms where new lines are of different
         # len from Unix style (LF)
         with open(
-            fd, mode="r", encoding=text_io.encoding, newline="", closefd=False
+            fd,
+            mode="r",
+            encoding=text_io.encoding,
+            newline="",
+            closefd=False,
         ) as raw:
             raw.seek(0)
 
-            read = 0
+            read_bytes = 0
             lines = raw.readlines()
+
             for line_idx, line in enumerate(lines):
-                if position < read + len(line):
+                line_size_bytes = len(line.encode(text_io.encoding))
+                if position < read_bytes + line_size_bytes:
+                    column_idx = 0
+                    col_bytes = 0
+
+                    # we found the line, now find which character specifically
+                    while position < read_bytes + col_bytes:
+                        col_bytes += len(line[column_idx].encode(text_io.encoding))
+                        column_idx += 1
+
                     return PositionContext(
                         line=line,
                         line_number=line_idx + 1,
-                        column_number=position - read + 1,
+                        column_number=column_idx + 1,
                         lines_before=lines[line_idx - context_lines : line_idx],
                     )
 
-                read += len(line)
+                read_bytes += line_size_bytes
 
             # edge case -- position points right after
             # the last character of the text
-            if position == read:
+            if position == read_bytes:
                 return PositionContext(
                     line=lines[-1],
                     line_number=line_idx + 1,
@@ -533,7 +550,7 @@ class IniParser:
         text_io: TextIOBase,
         instance: IniConfigBase,
     ) -> None:
-        parser = RecursiveDescentIniParserImpl(
+        parser = IniParserImpl(
             text_io,
             allow_unquoted_values=self.allow_unquoted_values,
             key_value_separator=self.key_value_separator,
@@ -576,7 +593,7 @@ class IniParser:
                 position_message += (
                     f"Line {position_context.line_number}, "
                     f"Column {position_context.column_number}, "
-                    f"Position {effective.position}\n"
+                    f"Byte {effective.position}\n"
                 )
 
                 effective.extend_message("\n\n" + position_message)

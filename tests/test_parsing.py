@@ -131,7 +131,7 @@ class InvalidConfigParsingCases(CaseBase):
             "(?s)"  # dotall flag
             "New line encountered before closing quoted string"
             ".+"
-            "Line 1, Column 25, Position 25",
+            "Line 1, Column 25, Byte 25",
         ) as ctx:
             IniConfig.load(path)
 
@@ -154,7 +154,7 @@ class InvalidConfigParsingCases(CaseBase):
             "(?s)"  # dotall flag
             "New line encountered before closing quoted string"
             ".+"
-            "Line 1, Column 26, Position 26",
+            "Line 1, Column 26, Byte 26",
         ):
             IniConfig.load(path)
 
@@ -210,7 +210,7 @@ class InvalidConfigParsingCases(CaseBase):
             "(?s)"  # dotall flag
             "New line encountered before closing quoted string"
             ".+"
-            "Line 2, Column 25, Position 35",
+            "Line 2, Column 25, Byte 35",
         ):
             IniConfig.load(path)
 
@@ -225,6 +225,66 @@ class InvalidConfigParsingCases(CaseBase):
             "(?s)"  # dotall flag
             "New line encountered before closing quoted string"
             ".+"
-            "Line 2, Column 26, Position 37",
+            "Line 2, Column 26, Byte 37",
+        ):
+            IniConfig.load(path)
+
+    def test_error_position_reporting_with_multibytes_characters(self):
+        path = self.gen_temp_config(
+            'foo = "хэлоу"\nvalue = "тест\n',
+            newline="\n",
+        )
+
+        with self.assertRaisesRegex(
+            ParsingError,
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 2, Column 14, Byte 37",
+        ):
+            IniConfig.load(path)
+
+    def test_error_position_reporting_with_multibytes_characters_crlf(self):
+        path = self.gen_temp_config(
+            'foo = "хэлоу"\nvalue = "тест\n',
+            newline="\r\n",
+        )
+
+        with self.assertRaisesRegex(
+            ParsingError,
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 2, Column 15, Byte 39",
+        ):
+            IniConfig.load(path)
+
+    def test_error_position_reporting_with_multibytes_characters_mid(self):
+        path = self.gen_temp_config(
+            'foo = "хэлоу"\nbar = "ворлд"\nvalue = "тест\nspam = eggs',
+            newline="\n",
+        )
+
+        with self.assertRaisesRegex(
+            ParsingError,
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 4, Column 1, Byte 56",
+        ):
+            IniConfig.load(path)
+
+    def test_error_position_reporting_with_multibytes_characters_mid_crlf(self):
+        path = self.gen_temp_config(
+            'foo = "хэлоу"\nbar = "ворлд"\nvalue = "тест\nspam = eggs',
+            newline="\r\n",
+        )
+
+        with self.assertRaisesRegex(
+            ParsingError,
+            "(?s)"  # dotall flag
+            "New line encountered before closing quoted string"
+            ".+"
+            "Line 4, Column 1, Byte 59",
         ):
             IniConfig.load(path)

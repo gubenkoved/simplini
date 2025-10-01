@@ -14,14 +14,19 @@ class CaseBase(unittest.TestCase):
                 self.addCleanup(os.unlink, tmp.name)
             return tmp.name
 
-    def gen_temp_config(self, content: str, newline: str | None = None) -> str:
+    def gen_temp_config(
+        self,
+        content: str,
+        newline: str | None = None,
+        encoding: str | None = "utf-8",
+    ) -> str:
         path = self.get_temp_path()
-        with open(path, "w", newline=newline) as f:
+        with open(path, "w", newline=newline, encoding=encoding) as f:
             f.write(content)
         return path
 
-    def get_text(self, path: str) -> str:
-        with open(path, "r") as f:
+    def get_text(self, path: str, encoding="utf-8") -> str:
+        with open(path, "r", encoding=encoding) as f:
             return f.read()
 
     def assertExpectedConfig(self, expected_config_path: str, actual_config: str):
