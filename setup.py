@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 from setuptools import find_packages, setup
 
@@ -16,6 +17,37 @@ def get_long_description():
         return text
 
 
+def get_git_commit():
+    """Return git commit hash or None if not available.
+
+    Preference order:
+    1) Environment variable GIT_COMMIT (first 7 chars)
+    2) `git rev-parse --short HEAD`
+    """
+    env = os.environ.get("GIT_COMMIT")
+    if env:
+        return env
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+        )
+        return out.decode("utf-8").strip()
+    except Exception:
+        return None
+
+
+commit_hash = get_git_commit()
+
+project_urls = {
+    "Homepage": "https://github.com/gubenkoved/simplini",
+}
+
+if commit_hash:
+    project_urls["Commit"] = (
+        f"https://github.com/gubenkoved/simplini/tree/{commit_hash}"
+    )
+
+
 setup(
     name="simplini",
     version=os.environ.get("PACKAGE_VERSION", "0.0.1+dev"),
@@ -30,6 +62,7 @@ setup(
     long_description_content_type="text/markdown",
     keywords="ini, config, parser",
     url="https://github.com/gubenkoved/simplini",
+    project_urls=project_urls,
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
