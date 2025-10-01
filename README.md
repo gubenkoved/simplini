@@ -17,12 +17,13 @@ The reasons this library was created:
 
 ## Comparison
 
-| Library        | Round-trip editing  | Maintenance  | Correctness | Configurability | Multi-line values |
-|----------------|---------------------|--------------|-------------|-----------------|-------------------|
-| `configparser` | ❌                 | 🟢           | ✅           | ✅               | ✅                  |
-| `ConfigObj`    | ✅                 | 🔴           | 🐛           | ❌               | ❌                  |
-| `python-ini`   | ❌                 | ❓           | ❓           | ✅               | ❓                |
-| `simplini`     | ✅                 | 🟢           | ✅            | ✅               | ✅                  |
+| Library        | Round-trip editing | Maintenance  | Correctness | Configurability | Multi-line values | Error reporting  |
+|----------------|--------------------|--------------|-------------|-----------------|-------------------|------------------|
+| `configparser` | ❌                  | 🟢           | ✅       | ✅               | ✅                  | 🙂            |
+| `ConfigObj`    | ✅                  | 🔴           | 🐛      | ❌               | ❌                  | 🤔                 |
+| `python-ini`   | ❌                  | ❓           | ❓      | ✅               | ❓                | 🙁                 |
+| `ini-parser`   |  ✅                 | ❓           | 🐛       | ❌                | ❌                 | 🙁               |
+| `simplini`     | ✅                  | 🟢           | ✅        | ✅               | ✅                  | 🥰 |
 
 ## Features
 
