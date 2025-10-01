@@ -1,4 +1,5 @@
 from io import TextIOBase
+from typing import List, Optional
 
 from simplini.core import IniConfigBase, IniConfigOption, IniConfigSection
 
@@ -14,7 +15,9 @@ class IniConfigRenderer:
         if text_io.tell() != 0:
             text_io.write(self.spacer)
 
-    def write_comments(self, text_io: TextIOBase, comments: list[str] | None) -> None:
+    def write_comments(
+        self, text_io: TextIOBase, comments: Optional[List[str]] = None
+    ) -> None:
         for comment_line in comments or []:
             if comment_line:
                 text_io.write(f"# {comment_line}\n")

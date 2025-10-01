@@ -1,25 +1,28 @@
+from typing import Dict, List, Optional
+
+
 class IniConfigOption:
     def __init__(self, key: str, value: str):
         super().__init__()
         self.key = key
         self.value = value
-        self.comment: list[str] | None = None
-        self.inline_comment: str | None = None
+        self.comment: Optional[List[str]] = None
+        self.inline_comment: Optional[str] = None
 
 
 class IniConfigSection:
-    def __init__(self, name: str | None):
+    def __init__(self, name: Optional[str]):
         super().__init__()
-        self.name: str | None = name
-        self.options: dict[str, IniConfigOption] = {}
-        self.comment: list[str] | None = None
+        self.name: Optional[str] = name
+        self.options: Dict[str, IniConfigOption] = {}
+        self.comment: Optional[List[str]] = None
 
     def set(self, key: str, value: str) -> IniConfigOption:
         option = self.get(key) or IniConfigOption(key, value)
         self.options[key] = option
         return option
 
-    def get(self, key: str) -> IniConfigOption | None:
+    def get(self, key: str) -> Optional[IniConfigOption]:
         return self.options.get(key)
 
     def __getitem__(self, key: str) -> IniConfigOption:
@@ -37,10 +40,10 @@ class IniConfigBase:
     def __init__(self):
         super().__init__()
         self.unnamed_section = IniConfigSection(None)
-        self.sections: dict[str, IniConfigSection] = {}
-        self.trailing_comment: list[str] | None = None
+        self.sections: Dict[str, IniConfigSection] = {}
+        self.trailing_comment: Optional[List[str]] = None
 
-    def get_section(self, section: str) -> IniConfigSection | None:
+    def get_section(self, section: str) -> Optional[IniConfigSection]:
         return self.sections.get(section)
 
     def ensure_section(self, name: str) -> IniConfigSection:

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from simplini.core import IniConfigBase, IniConfigOption, IniConfigSection
 from simplini.parser import IniParser, ParsingError
 from simplini.renderer import IniConfigRenderer
@@ -19,7 +21,7 @@ class IniConfig(IniConfigBase):
     def load(
         path: str,
         encoding: str = "utf-8",
-        parser: IniParser | None = None,
+        parser: Optional[IniParser] = None,
     ) -> "IniConfig":
         parser = parser or IniParser()
 

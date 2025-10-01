@@ -1,6 +1,6 @@
 import logging
 from io import TextIOBase
-from typing import Callable, TypeVar
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 from simplini.core import IniConfigBase, IniConfigOption, IniConfigSection
 
@@ -16,7 +16,7 @@ class PositionContext:
         line: str,
         line_number: int,
         column_number: int,
-        lines_before: list[str] | None = None,
+        lines_before: Optional[List[str]] = None,
     ):
         self.line = line
         # 1-based line number of the line
@@ -31,8 +31,8 @@ class ParsingError(Exception):
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message: str = message
-        self.position: int | None = None
-        self.position_context: PositionContext | None = None
+        self.position: Optional[int] = None
+        self.position_context: Optional[PositionContext] = None
 
     def extend_message(self, message: str) -> None:
         self.message += message
@@ -42,7 +42,7 @@ class ParsingError(Exception):
 class RecursiveDescentParserBase:
     def __init__(self, text_io: TextIOBase):
         self.text_io: TextIOBase = text_io
-        self.deepest_error: ParsingError | None = None
+        self.deepest_error: Optional[ParsingError] = None
 
     def parsing_error(self, message: str) -> ParsingError:
         position = self.text_io.tell()
@@ -82,8 +82,8 @@ class RecursiveDescentParserBase:
         return None
 
     def accept(
-        self, value_or_predicate: Callable[[str], bool] | str
-    ) -> tuple[bool, str | None]:
+        self, value_or_predicate: Union[Callable[[str], bool], str]
+    ) -> Tuple[bool, Optional[str]]:
         char = self.text_io.read(1)
 
         # reached EOF
@@ -106,8 +106,8 @@ class RecursiveDescentParserBase:
 
     def accept_multiple(
         self,
-        value_or_predicate: Callable[[str], bool] | str,
-    ) -> tuple[bool, str]:
+        value_or_predicate: Union[Callable[[str], bool], str],
+    ) -> Tuple[bool, str]:
         chars = ""
         accepted, char = self.accept(value_or_predicate)
 
@@ -121,7 +121,7 @@ class RecursiveDescentParserBase:
 
         return True, chars
 
-    def multiple(self, parse_fn: Callable[[], T]) -> list[T]:
+    def multiple(self, parse_fn: Callable[[], T]) -> List[T]:
         results = []
 
         while True:
@@ -135,7 +135,7 @@ class RecursiveDescentParserBase:
 
         return results
 
-    def optional(self, parse_fn: Callable[[], T]) -> tuple[bool, T | None]:
+    def optional(self, parse_fn: Callable[[], T]) -> Tuple[bool, Optional[T]]:
         position = self.text_io.tell()
 
         try:
@@ -145,7 +145,7 @@ class RecursiveDescentParserBase:
             self.text_io.seek(position)
             return False, None
 
-    def choice(self, parse_fns: list[Callable[[], T]]) -> tuple[int, T]:
+    def choice(self, parse_fns: List[Callable[[], T]]) -> Tuple[int, T]:
         last_error = None
         position = self.text_io.tell()
 
@@ -167,7 +167,7 @@ class RecursiveDescentParserBase:
         return peeked
 
     def hinted_choice(
-        self, hinted_parse_fns: list[tuple[str | None, Callable[[], T]]]
+        self, hinted_parse_fns: List[Tuple[Optional[str], Callable[[], T]]]
     ) -> T:
         position = self.text_io.tell()
         last_error = None
@@ -199,7 +199,7 @@ class IniParserImpl(RecursiveDescentParserBase):
         comment_separator: str,
         escape_character: str,
         quote_character: str,
-        escape_sequences: dict[str, str],
+        escape_sequences: Dict[str, str],
         new_line: str,
     ):
         super().__init__(text_io)
@@ -392,8 +392,8 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.expect(self.new_line)
         return ""
 
-    def parse_comments(self) -> list[str]:
-        def parse_comment_or_empty_line() -> tuple[int, str]:
+    def parse_comments(self) -> List[str]:
+        def parse_comment_or_empty_line() -> Tuple[int, str]:
             parser_idx, parsed_value = self.choice(
                 [
                     self.parse_comment_line,
@@ -494,7 +494,7 @@ class IniParser:
         text_io: TextIOBase,
         position: int,
         context_lines: int = 1,
-    ) -> PositionContext | None:
+    ) -> Optional[PositionContext]:
         fd = text_io.fileno()
 
         # re-open file w/o automatic new-line conversion so that

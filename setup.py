@@ -26,12 +26,6 @@ def read_version():
 
 
 def get_git_commit():
-    """Return git commit hash or None if not available.
-
-    Preference order:
-    1) Environment variable GIT_COMMIT (first 7 chars)
-    2) `git rev-parse --short HEAD`
-    """
     env = os.environ.get("GIT_COMMIT")
     if env:
         return env
@@ -62,7 +56,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=[],
-    python_requires=">=3.10",
+    python_requires=">=3.7",
     author="Eugene Gubenkov",
     author_email="gubenkoved@gmail.com",
     description="A simple INI file parser/writer",
@@ -76,6 +70,9 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
