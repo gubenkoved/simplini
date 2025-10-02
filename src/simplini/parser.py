@@ -516,6 +516,7 @@ class IniParser:
             r"\t": "\t",
             r"\\": "\\",
             r"\"": '"',
+            '\\\n': "",
         }
         self.new_line = "\n"
 
