@@ -1,3 +1,4 @@
+import functools
 import logging
 from io import TextIOBase
 from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
@@ -455,30 +456,22 @@ class IniParserImpl(RecursiveDescentParserBase):
 
         return section
 
-    def parse(self, config: IniConfigBase):
-        # first comments need a little bit edge-case processing because of the
-        # inherent ambiguity as they apply to the:
-        # * next option if it exists,
-        # * OR to the next section if it exists,
-        # * OR to the comment for unnamed section otherwise;
-        first_comments = self.parse_comments()
+    def parse_comments_only_document_edge_case(self, config: IniConfigBase):
+        comment = self.parse_comments()
 
-        # parse default section
+        self.expect_eof()
+
+        config.unnamed_section.comment = comment
+
+        return config
+
+    def parse_normal(self, config: IniConfigBase):
+        # parse unnamed section
         config.unnamed_section = IniConfigSection(None)
         self.parse_section_body(config.unnamed_section)
 
         # then any number of other sections
         sections = self.multiple(self.parse_section)
-
-        # attribute first comments
-        if config.unnamed_section.options:
-            first_option = next(iter(config.unnamed_section.options.values()))
-            first_option.comment = first_comments
-        elif sections:
-            first_section = sections[0]
-            first_section.comment = first_comments
-        else:
-            config.unnamed_section.comment = first_comments
 
         for section in sections:
             assert section is not None
@@ -495,6 +488,14 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.expect_eof()
 
         return config
+
+    def parse(self, config: IniConfigBase):
+        self.choice(
+            [
+                functools.partial(self.parse_comments_only_document_edge_case, config),
+                functools.partial(self.parse_normal, config),
+            ]
+        )
 
 
 class IniParser:

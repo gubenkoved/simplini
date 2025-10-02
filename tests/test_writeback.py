@@ -15,11 +15,14 @@ LOGGER = logging.getLogger(__name__)
 class WriteBackCases(CaseBase):
     def generic_writeback_test(
         self,
-        path: str,
+        source_path: str,
         writeback_path: str,
         configure_fn: Optional[Callable[[IniConfig], None]] = None,
     ):
-        config = IniConfig.load(path)
+        source_path = os.path.join(FIXTURES_DIR, source_path)
+        writeback_path = os.path.join(FIXTURES_DIR, writeback_path)
+
+        config = IniConfig.load(source_path)
 
         if configure_fn:
             configure_fn(config)
@@ -37,8 +40,8 @@ class WriteBackCases(CaseBase):
 
     def test_sample(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "sample.ini"),
-            os.path.join(FIXTURES_DIR, "sample-writeback.ini"),
+            "sample.ini",
+            "sample-writeback.ini",
         )
 
     def test_sample_prefer_unquoted(self):
@@ -48,8 +51,8 @@ class WriteBackCases(CaseBase):
             )
 
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "sample.ini"),
-            os.path.join(FIXTURES_DIR, "sample-writeback-prefer-unquoted.ini"),
+            "sample.ini",
+            "sample-writeback-prefer-unquoted.ini",
             configure,
         )
 
@@ -58,53 +61,61 @@ class WriteBackCases(CaseBase):
             config.renderer.values_rendering_style = ValuesRenderingStyle.PREFER_SOURCE
 
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "sample.ini"),
-            os.path.join(FIXTURES_DIR, "sample-writeback-prefer-source.ini"),
+            "sample.ini",
+            "sample-writeback-prefer-source.ini",
             configure,
         )
 
     def test_unquoted_value(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "unquoted-value.ini"),
-            os.path.join(FIXTURES_DIR, "unquoted-value-writeback.ini"),
+            "unquoted-value.ini",
+            "unquoted-value-writeback.ini",
         )
 
     def test_comments_with_new_lines(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "comments-with-new-lines.ini"),
-            os.path.join(FIXTURES_DIR, "comments-with-new-lines-writeback.ini"),
+            "comments-with-new-lines.ini",
+            "comments-with-new-lines-writeback.ini",
         )
 
     def test_comments_at_various_places(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "comments-various-places.ini"),
-            os.path.join(FIXTURES_DIR, "comments-various-places-writeback.ini"),
+            "comments-various-places.ini",
+            "comments-various-places-writeback.ini",
         )
 
     def test_trailing_comment_unnamed_section(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "trailing-comment-default-section.ini"),
-            os.path.join(
-                FIXTURES_DIR, "trailing-comment-default-section-writeback.ini"
-            ),
+            "trailing-comment-default-section.ini",
+            "trailing-comment-default-section-writeback.ini",
         )
 
     def test_comments_compaction(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "comments-compaction.ini"),
-            os.path.join(FIXTURES_DIR, "comments-compaction-writeback.ini"),
+            "comments-compaction.ini",
+            "comments-compaction-writeback.ini",
         )
 
     def test_comment_with_empty_comment_lines_preserved(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "comments-with-empty-comment-lines.ini"),
-            os.path.join(
-                FIXTURES_DIR, "comments-with-empty-comment-lines-writeback.ini"
-            ),
+            "comments-with-empty-comment-lines.ini",
+            "comments-with-empty-comment-lines-writeback.ini",
         )
 
     def test_escape_sequences(self):
         self.generic_writeback_test(
-            os.path.join(FIXTURES_DIR, "escape-sequences.ini"),
-            os.path.join(FIXTURES_DIR, "escape-sequences-writeback.ini"),
+            "escape-sequences.ini",
+            "escape-sequences-writeback.ini",
+        )
+
+    def test_empty_sections(self):
+        self.generic_writeback_test(
+            "empty-sections.ini",
+            "empty-sections-writeback.ini",
+        )
+
+    def test_named_sections_only(self):
+        self.generic_writeback_test(
+            "named-sections-only.ini",
+            "named-sections-only-writeback.ini",
         )
