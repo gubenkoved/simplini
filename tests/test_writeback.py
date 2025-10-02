@@ -1,7 +1,9 @@
 import logging
 import os
+from typing import Callable, Optional
 
 from simplini import IniConfig
+from simplini.renderer import ValuesRenderingStyle
 from tests.common import CaseBase
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -11,8 +13,16 @@ LOGGER = logging.getLogger(__name__)
 
 
 class WriteBackCases(CaseBase):
-    def generic_writeback_test(self, path: str, writeback_path: str):
+    def generic_writeback_test(
+        self,
+        path: str,
+        writeback_path: str,
+        configure_fn: Optional[Callable[[IniConfig], None]] = None,
+    ):
         config = IniConfig.load(path)
+
+        if configure_fn:
+            configure_fn(config)
 
         temp_path = self.get_temp_path()
         config.save(temp_path)
@@ -25,10 +35,22 @@ class WriteBackCases(CaseBase):
             actual_config,
         )
 
-    def test_simple(self):
+    def test_sample(self):
         self.generic_writeback_test(
             os.path.join(FIXTURES_DIR, "sample.ini"),
             os.path.join(FIXTURES_DIR, "sample-writeback.ini"),
+        )
+
+    def test_sample_prefer_unquoted(self):
+        def configure(config: IniConfig):
+            config.renderer.values_rendering_style = (
+                ValuesRenderingStyle.PREFER_UNQUOTED
+            )
+
+        self.generic_writeback_test(
+            os.path.join(FIXTURES_DIR, "sample.ini"),
+            os.path.join(FIXTURES_DIR, "sample-writeback-prefer-unquoted.ini"),
+            configure,
         )
 
     def test_unquoted_value(self):

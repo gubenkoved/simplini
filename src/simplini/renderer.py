@@ -1,7 +1,15 @@
+import enum
 from io import TextIOBase
 from typing import List, Optional
 
 from simplini.core import IniConfigBase, IniConfigOption, IniConfigSection
+
+
+class ValuesRenderingStyle(enum.Enum):
+    DEFAULT = 0
+    PREFER_UNQUOTED = 1
+    # TODO: implement this
+    # PREFER_SOURCE = 2
 
 
 class IniConfigRenderer:
@@ -10,13 +18,16 @@ class IniConfigRenderer:
         self.spacer = "\n"
         self.escaped_characters = ["\\", '"']
         self.escape_character = "\\"
+        self.values_rendering_style: ValuesRenderingStyle = ValuesRenderingStyle.DEFAULT
 
     def write_spacer(self, text_io: TextIOBase):
         if text_io.tell() != 0:
             text_io.write(self.spacer)
 
     def write_comments(
-        self, text_io: TextIOBase, comments: Optional[List[str]] = None
+        self,
+        text_io: TextIOBase,
+        comments: Optional[List[str]] = None,
     ) -> None:
         for comment_line in comments or []:
             if comment_line:
@@ -52,7 +63,19 @@ class IniConfigRenderer:
 
         text_io.write("\n")
 
+    def is_value_safe_to_be_unquoted(self, s: str) -> bool:
+        return s == s.strip() and not any(c in s for c in self.escaped_characters)
+
     def write_single_line_value(self, text_io: TextIOBase, value: str) -> None:
+        prefer_unquoted = (
+            self.values_rendering_style == ValuesRenderingStyle.PREFER_UNQUOTED
+        )
+        if prefer_unquoted and self.is_value_safe_to_be_unquoted(value):
+            self.write_unquoted_value(text_io, value)
+        else:
+            self.write_quoted_value(text_io, value)
+
+    def write_quoted_value(self, text_io: TextIOBase, value: str) -> None:
         text_io.write('"')
         for char in value:
             if char in self.escaped_characters:
@@ -61,6 +84,10 @@ class IniConfigRenderer:
             else:
                 text_io.write(char)
         text_io.write('"')
+
+    def write_unquoted_value(self, text_io: TextIOBase, value: str) -> None:
+        assert self.is_value_safe_to_be_unquoted(value)
+        text_io.write(value)
 
     # TODO: replace triple quotes inside the value, see TOML for reference
     def write_multiline_value(self, text_io: TextIOBase, value: str) -> None:
