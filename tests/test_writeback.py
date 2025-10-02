@@ -53,6 +53,16 @@ class WriteBackCases(CaseBase):
             configure,
         )
 
+    def test_sample_prefer_source(self):
+        def configure(config: IniConfig):
+            config.renderer.values_rendering_style = ValuesRenderingStyle.PREFER_SOURCE
+
+        self.generic_writeback_test(
+            os.path.join(FIXTURES_DIR, "sample.ini"),
+            os.path.join(FIXTURES_DIR, "sample-writeback-prefer-source.ini"),
+            configure,
+        )
+
     def test_unquoted_value(self):
         self.generic_writeback_test(
             os.path.join(FIXTURES_DIR, "unquoted-value.ini"),

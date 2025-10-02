@@ -1,4 +1,15 @@
+import enum
 from typing import Dict, List, Optional
+
+
+class ValuePresentationStyle(enum.Enum):
+    UNQUOTED = 0
+    QUOTED = 1
+    TRIPLE_QUOTED = 2
+
+
+class SimpliniError(Exception):
+    pass
 
 
 class IniConfigOption:
@@ -8,6 +19,7 @@ class IniConfigOption:
         self.value = value
         self.comment: Optional[List[str]] = None
         self.inline_comment: Optional[str] = None
+        self.style: Optional[ValuePresentationStyle] = None
 
     def __repr__(self) -> str:
         return f"IniConfigOption({self.key!r}, {self.value!r})"

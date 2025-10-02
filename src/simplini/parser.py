@@ -2,7 +2,13 @@ import logging
 from io import TextIOBase
 from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
-from simplini.core import IniConfigBase, IniConfigOption, IniConfigSection
+from simplini.core import (
+    IniConfigBase,
+    IniConfigOption,
+    IniConfigSection,
+    SimpliniError,
+    ValuePresentationStyle,
+)
 
 T = TypeVar("T")
 
@@ -27,7 +33,7 @@ class PositionContext:
         self.lines_before = lines_before
 
 
-class ParsingError(Exception):
+class ParsingError(SimpliniError):
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message: str = message
@@ -168,20 +174,20 @@ class RecursiveDescentParserBase:
 
     def hinted_choice(
         self, hinted_parse_fns: List[Tuple[Optional[str], Callable[[], T]]]
-    ) -> T:
+    ) -> Tuple[int, T]:
         position = self.text_io.tell()
         last_error = None
 
-        for hint, parse_fn in hinted_parse_fns:
+        for parser_idx, (hint, parse_fn) in enumerate(hinted_parse_fns):
             if hint:
                 peeked = self.peek(len(hint))
 
                 # hint matched, so we know this branch is what we need
                 if hint == peeked:
-                    return parse_fn()
+                    return parser_idx, parse_fn()
             else:  # empty hint, attempt the branch and go to next if not successful
                 try:
-                    return parse_fn()
+                    return parser_idx, parse_fn()
                 except ParsingError as e:
                     self.text_io.seek(position)
                     last_error = e
@@ -316,17 +322,26 @@ class IniParserImpl(RecursiveDescentParserBase):
 
         return option_name
 
-    def parse_option_value(self) -> str:
+    def parse_option_value(self) -> Tuple[str, ValuePresentationStyle]:
         if self.allow_unquoted_values:
-            return self.hinted_choice(
+            parser_idx, value = self.hinted_choice(
                 [
                     (self.quote_character * 3, self.parse_triple_quoted_string),
                     (self.quote_character, self.parse_quoted_string),
                     (None, self.parse_unquoted_string),
                 ]
             )
+
+            if parser_idx == 0:
+                return value, ValuePresentationStyle.TRIPLE_QUOTED
+            elif parser_idx == 1:
+                return value, ValuePresentationStyle.QUOTED
+            elif parser_idx == 2:
+                return value, ValuePresentationStyle.UNQUOTED
+            else:
+                raise NotImplementedError(parser_idx)
         else:
-            return self.hinted_choice(
+            parser_idx, value = self.hinted_choice(
                 [
                     (self.quote_character * 3, self.parse_triple_quoted_string),
                     (
@@ -336,6 +351,13 @@ class IniParserImpl(RecursiveDescentParserBase):
                 ]
             )
 
+            if parser_idx == 0:
+                return value, ValuePresentationStyle.TRIPLE_QUOTED
+            elif parser_idx == 1:
+                return value, ValuePresentationStyle.QUOTED
+            else:
+                raise NotImplementedError(parser_idx)
+
     def parse_option(self) -> IniConfigOption:
         comments = self.parse_comments()
         self.parse_whitespaces()
@@ -344,7 +366,7 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.expect(self.key_value_separator)
         self.parse_whitespaces()
 
-        option_value = self.parse_option_value()
+        option_value, option_value_style = self.parse_option_value()
 
         _, inline_comment = self.optional(self.parse_comment_line)
         self.multiple(self.parse_empty_line)
@@ -352,6 +374,7 @@ class IniParserImpl(RecursiveDescentParserBase):
         option = IniConfigOption(option_name, option_value)
         option.comment = comments
         option.inline_comment = inline_comment
+        option.style = option_value_style
         return option
 
     def is_whitespace(self, char: str) -> bool:
