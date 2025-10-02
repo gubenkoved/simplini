@@ -197,6 +197,9 @@ class RecursiveDescentParserBase:
         raise last_error
 
 
+# TODO: extract grammatically important parts into a separate object like
+#  Flavour that will be shared (or used) across parser and renderer to provide
+#  consistent behaviour between parsing and rendering
 class IniParserImpl(RecursiveDescentParserBase):
     def __init__(
         self,
@@ -310,12 +313,15 @@ class IniParserImpl(RecursiveDescentParserBase):
 
         return value
 
-    def parse_option_name(self) -> str:
-        def is_option_name_char(c: str) -> bool:
-            return c.isalnum() or c in ("_", "-", ".", ":")
+    def is_option_name_char(self, c: str) -> bool:
+        # here is what TOML allows: A-Za-z0-9_-
+        # see https://toml.io/en/v1.0.0
+        # we will allow a bit more for now
+        return c.isalnum() or c in ("_", "-", ".", ":")
 
+    def parse_option_name(self) -> str:
         _, option_name = self.accept_multiple(
-            is_option_name_char,
+            self.is_option_name_char,
         )
 
         if not option_name:
@@ -543,7 +549,7 @@ class IniParser:
                     col_bytes = 0
 
                     # we found the line, now find which character specifically
-                    while position < read_bytes + col_bytes:
+                    while position > read_bytes + col_bytes + 1:
                         col_bytes += len(line[column_idx].encode(text_io.encoding))
                         column_idx += 1
 

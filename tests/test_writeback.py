@@ -1,7 +1,7 @@
+import json
 import logging
 import os
 from typing import Callable, Optional
-import json
 
 from simplini import IniConfig
 from simplini.renderer import ValuesRenderingStyle
@@ -30,14 +30,18 @@ class WriteBackCases(CaseBase):
 
         temp_path = self.get_temp_path()
 
-        json_representation = json.dumps(config.as_dict(), indent=4).splitlines()
+        config_data = config.as_dict()
+
+        json_representation = json.dumps(config_data, indent=4).splitlines()
 
         if not config.trailing_comment:
             config.trailing_comment = []
         else:
             config.trailing_comment.append("")
 
-        config.trailing_comment.append("Writeback test-only automatically added JSON representation:")
+        config.trailing_comment.append(
+            "Writeback test-only automatically added JSON representation:"
+        )
         config.trailing_comment.extend(json_representation)
 
         config.save(temp_path)
@@ -48,6 +52,13 @@ class WriteBackCases(CaseBase):
         self.assertExpectedConfig(
             writeback_path,
             actual_config,
+        )
+
+        # read the config back and make sure data is still interpreted the same way
+        loaded_back = IniConfig.load(writeback_path)
+        self.assertEqual(
+            config_data,
+            loaded_back.as_dict(),
         )
 
     def test_sample(self):
@@ -130,4 +141,10 @@ class WriteBackCases(CaseBase):
         self.generic_writeback_test(
             "named-sections-only.ini",
             "named-sections-only-writeback.ini",
+        )
+
+    def test_option_names(self):
+        self.generic_writeback_test(
+            "option-names.ini",
+            "option-names-writeback.ini",
         )

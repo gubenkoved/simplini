@@ -288,3 +288,23 @@ class InvalidConfigParsingCases(CaseBase):
             "Line 4, Column 1, Byte 59",
         ):
             IniConfig.load(path)
+
+    def test_invalid_key_name(self):
+        path = self.gen_temp_config('foo"key = bad')
+
+        with self.assertRaisesRegex(
+            ParsingError, 'Expected "=", but encountered """'
+        ) as ctx:
+            IniConfig.load(path)
+
+        # verify full error message
+        self.assertEqual(
+            str(ctx.exception),
+            """Expected "=", but encountered ""\"
+
+  ...
+> foo"key = bad
+     ^
+Line 1, Column 4, Byte 4
+""",
+        )
