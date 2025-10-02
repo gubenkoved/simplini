@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Callable, Optional
+import json
 
 from simplini import IniConfig
 from simplini.renderer import ValuesRenderingStyle
@@ -28,6 +29,17 @@ class WriteBackCases(CaseBase):
             configure_fn(config)
 
         temp_path = self.get_temp_path()
+
+        json_representation = json.dumps(config.as_dict(), indent=4).splitlines()
+
+        if not config.trailing_comment:
+            config.trailing_comment = []
+        else:
+            config.trailing_comment.append("")
+
+        config.trailing_comment.append("Writeback test-only automatically added JSON representation:")
+        config.trailing_comment.extend(json_representation)
+
         config.save(temp_path)
 
         with open(temp_path, "r") as file:
