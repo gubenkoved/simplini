@@ -80,8 +80,8 @@ class RecursiveDescentParserBase:
         if actual != expected:
             if not error:
                 error = (
-                    f'Expected {self.represent(expected)}, '
-                    f'but encountered {self.represent(actual)}'
+                    f"Expected {self.represent(expected)}, "
+                    f"but encountered {self.represent(actual)}"
                 )
             raise self.parsing_error(error)
 
@@ -462,9 +462,24 @@ class IniParserImpl(RecursiveDescentParserBase):
 
         self.expect("]")
         self.accept_multiple(self.is_whitespace)
-        self.expect(self.new_line, "Expected end of line after section name")
+
+        idx, result = self.hinted_choice(
+            [
+                (self.comment_separator, self.parse_comment_line),
+                (
+                    None,
+                    lambda: self.expect(
+                        self.new_line, "Expected end of line after section header"
+                    ),
+                ),
+            ]
+        )
 
         section = IniConfigSection(section_name)
+
+        if idx == 0:
+            section.inline_comment = result
+
         section.comment = comments
 
         self.parse_section_body(section)
@@ -525,7 +540,7 @@ class IniParser:
             r"\t": "\t",
             r"\\": "\\",
             r"\"": '"',
-            '\\\n': "",
+            "\\\n": "",
         }
         self.new_line = "\n"
 

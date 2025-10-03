@@ -117,13 +117,20 @@ class ParsingTestCases(CaseBase):
         )
 
     def test_whitespaces_after_section_header_are_allowed(self):
-        path = self.gen_temp_config('[section]   \nfoo=bar')
+        path = self.gen_temp_config("[section]   \nfoo=bar")
 
         config = IniConfig.load(path)
 
-        self.assertIn('section', config.sections)
-        self.assertIn('foo', config.sections['section'].options)
-        self.assertEqual('bar', config.sections['section']['foo'].value)
+        self.assertIn("section", config.sections)
+        self.assertIn("foo", config.sections["section"].options)
+        self.assertEqual("bar", config.sections["section"]["foo"].value)
+
+    def test_comment_after_section_header(self):
+        path = self.gen_temp_config("[section] # allowed\nfoo=bar")
+
+        config = IniConfig.load(path)
+
+        self.assertEqual("allowed", config.sections["section"].inline_comment)
 
 
 class InvalidConfigParsingCases(CaseBase):
@@ -319,19 +326,9 @@ Line 1, Column 4, Byte 4
         )
 
     def test_key_defined_on_same_line_with_section_is_not_allowed(self):
-        path = self.gen_temp_config('[section] key = value')
+        path = self.gen_temp_config("[section] key = value")
 
         with self.assertRaisesRegex(
-            ParsingError,
-            'Expected end of line after section name'
-        ):
-            IniConfig.load(path)
-
-    def test_comment_after_section_header_is_not_allowed(self):
-        path = self.gen_temp_config('[section] # not allowed\nfoo=bar')
-
-        with self.assertRaisesRegex(
-            ParsingError,
-            'Expected end of line after section name'
+            ParsingError, "Expected end of line after section header"
         ):
             IniConfig.load(path)

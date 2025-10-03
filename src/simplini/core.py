@@ -31,6 +31,7 @@ class IniConfigSection:
         self.name: Optional[str] = name
         self.options: Dict[str, IniConfigOption] = {}
         self.comment: Optional[List[str]] = None
+        self.inline_comment: Optional[str] = None
 
     def set(self, key: str, value: str) -> IniConfigOption:
         option = self.get(key) or IniConfigOption(key, value)

@@ -1,4 +1,5 @@
 import enum
+import logging
 from io import TextIOBase
 from typing import List, Optional
 
@@ -9,6 +10,8 @@ from simplini.core import (
     SimpliniError,
     ValuePresentationStyle,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ValuesRenderingStyle(enum.Enum):
@@ -60,7 +63,20 @@ class IniConfigRenderer:
         self.write_comments(text_io, section.comment)
 
         if section.name:
-            text_io.write(f"[{section.name}]\n")
+            text_io.write(f"[{section.name}]")
+
+            if section.inline_comment:
+                text_io.write(f"  # {section.inline_comment}")
+
+            text_io.write(self.new_line)
+        else:
+            LOGGER.warning(
+                "rendering inline comment for unnamed section, the semantic "
+                "is not correct and it will be rendered as regular comment"
+            )
+            if section.inline_comment:
+                text_io.write(f"# {section.inline_comment}")
+                text_io.write(self.new_line)
 
         for option in section.options.values():
             self.write_option(text_io, option)
