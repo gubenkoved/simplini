@@ -1,12 +1,13 @@
 import enum
 import logging
 from io import TextIOBase
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from simplini.core import (
     IniConfigBase,
     IniConfigOption,
     IniConfigSection,
+    IniFlavour,
     SimpliniError,
     ValuePresentationStyle,
 )
@@ -24,142 +25,223 @@ class RenderingError(SimpliniError):
     pass
 
 
+class RenderingContext:
+    def __init__(
+        self,
+        config: IniConfigBase,
+        flavour: IniFlavour,
+        text_io: TextIOBase,
+    ):
+        self.config = config
+        self.flavour = flavour
+        self.text_io = text_io
+
+    # convenience shortcuts
+    @property
+    def spacer(self) -> str:
+        return self.flavour.new_line
+
+    @property
+    def comment_marker(self) -> str:
+        return self.flavour.comment_markers[0]
+
+    @property
+    def new_line(self) -> str:
+        return self.flavour.new_line
+
+    @property
+    def key_value_separator(self) -> str:
+        return self.flavour.key_value_separators[0]
+
+    @property
+    def quote_character(self) -> str:
+        return self.flavour.quote_character
+
+    @property
+    def escape_character(self) -> str:
+        return self.flavour.escape_character
+
+    # TODO: make sure NOT to replace ALL
+    @property
+    def escape_sequences(self) -> Dict[str, str]:
+        # reverse the mapping
+        return {v: k for k, v in self.flavour.escape_sequences.items()}
+
+
 class IniConfigRenderer:
     def __init__(self):
         super().__init__()
-        self.spacer = "\n"
-        self.new_line = "\n"
-        self.escape_character = "\\"
-        self.escape_sequences = {
-            "\\": "\\",
-            '"': '"',
-            "\n": "n",
-        }
-        # not all the escape sequences characters as they are NOT evaluated
-        # as part of unquoted strings
-        self.unsafe_unquoted_characters = ["#", '"']
         self.values_rendering_style: ValuesRenderingStyle = (
             ValuesRenderingStyle.PREFER_QUOTED
         )
 
-    def write_spacer(self, text_io: TextIOBase):
+    def write_spacer(
+        self,
+        ctx: RenderingContext,
+    ):
+        text_io = ctx.text_io
         if text_io.tell() != 0:
-            text_io.write(self.spacer)
+            text_io.write(ctx.spacer)
 
     def write_comments(
         self,
-        text_io: TextIOBase,
+        ctx: RenderingContext,
         comments: Optional[List[str]] = None,
     ) -> None:
+        text_io = ctx.text_io
         for comment_line in comments or []:
             if comment_line:
-                text_io.write(f"# {comment_line}\n")
+                text_io.write(f"{ctx.comment_marker} {comment_line}{ctx.new_line}")
             else:  # edge case for empty comment lines (avoid extra space)
-                text_io.write("#\n")
+                text_io.write(f"{ctx.comment_marker}{ctx.new_line}")
 
-    def write_section(self, text_io: TextIOBase, section: IniConfigSection) -> None:
-        self.write_spacer(text_io)
+    def write_section(
+        self,
+        ctx: RenderingContext,
+        section: IniConfigSection,
+    ) -> None:
+        text_io = ctx.text_io
 
-        self.write_comments(text_io, section.comment)
+        self.write_spacer(ctx)
+        self.write_comments(ctx, section.comment)
 
         if section.name:
             text_io.write(f"[{section.name}]")
 
             if section.inline_comment:
-                text_io.write(f"  # {section.inline_comment}")
+                text_io.write(f"  {ctx.comment_marker} {section.inline_comment}")
 
-            text_io.write(self.new_line)
+            text_io.write(ctx.new_line)
         else:
             LOGGER.warning(
                 "rendering inline comment for unnamed section, the semantic "
                 "is not correct and it will be rendered as regular comment"
             )
             if section.inline_comment:
-                text_io.write(f"# {section.inline_comment}")
-                text_io.write(self.new_line)
+                text_io.write(f"{ctx.comment_marker} {section.inline_comment}")
+                text_io.write(ctx.new_line)
 
         for option in section.options.values():
-            self.write_option(text_io, option)
+            self.write_option(ctx, option)
 
-    def write_option(self, text_io: TextIOBase, option: IniConfigOption) -> None:
-        self.write_spacer(text_io)
-        self.write_comments(text_io, option.comment)
+    def write_option(
+        self,
+        ctx: RenderingContext,
+        option: IniConfigOption,
+    ) -> None:
+        text_io = ctx.text_io
+
+        self.write_spacer(ctx)
+        self.write_comments(ctx, option.comment)
 
         text_io.write(option.key)
-        text_io.write(" = ")
+        text_io.write(f" {ctx.key_value_separator} ")
 
-        self.write_option_value(text_io, option)
+        self.write_option_value(ctx, option)
 
         if option.inline_comment:
-            text_io.write(f"  # {option.inline_comment}")
+            text_io.write(f"  {ctx.comment_marker} {option.inline_comment}")
 
-        text_io.write(self.new_line)
+        text_io.write(ctx.new_line)
 
-    def is_value_safe_to_be_unquoted(self, s: str) -> bool:
+    def is_value_safe_to_be_unquoted(
+        self,
+        ctx: RenderingContext,
+        s: str,
+    ) -> bool:
         return (
             s == s.strip()
-            and not any(c in s for c in self.unsafe_unquoted_characters)
-            and self.new_line not in s
+            and not any(c in s for c in ctx.flavour.comment_markers)
+            and not s.startswith(ctx.quote_character)
+            and not s.endswith(ctx.quote_character)
+            and ctx.new_line not in s
         )
 
-    def write_option_value(self, text_io: TextIOBase, option: IniConfigOption) -> None:
+    def write_option_value(
+        self,
+        ctx: RenderingContext,
+        option: IniConfigOption,
+    ) -> None:
         value = option.value
         if self.values_rendering_style == ValuesRenderingStyle.PREFER_UNQUOTED:
-            if self.is_value_safe_to_be_unquoted(value):
-                self.write_unquoted_value(text_io, value)
-            elif self.new_line in value:
-                self.write_triple_quoted_value(text_io, value)
+            if self.is_value_safe_to_be_unquoted(ctx, value):
+                self.write_unquoted_value(ctx, value)
+            elif ctx.new_line in value:
+                self.write_triple_quoted_value(ctx, value)
             else:
-                self.write_quoted_value(text_io, value)
+                self.write_quoted_value(ctx, value)
         elif (
             self.values_rendering_style == ValuesRenderingStyle.PREFER_SOURCE
             and option.style is not None
         ):
             if (
                 option.style == ValuePresentationStyle.UNQUOTED
-                and self.is_value_safe_to_be_unquoted(value)
+                and self.is_value_safe_to_be_unquoted(ctx, value)
             ):
-                self.write_unquoted_value(text_io, value)
+                self.write_unquoted_value(ctx, value)
             elif option.style == ValuePresentationStyle.TRIPLE_QUOTED:
-                self.write_triple_quoted_value(text_io, value)
+                self.write_triple_quoted_value(ctx, value)
             elif option.style == ValuePresentationStyle.QUOTED:
-                self.write_quoted_value(text_io, value)
+                self.write_quoted_value(ctx, value)
             else:
                 # fallback for source unquoted unsafe value
-                self.write_quoted_value(text_io, value)
+                self.write_quoted_value(ctx, value)
         elif self.values_rendering_style == ValuesRenderingStyle.PREFER_QUOTED:
-            if self.new_line in value:
-                self.write_triple_quoted_value(text_io, value)
+            if ctx.new_line in value:
+                self.write_triple_quoted_value(ctx, value)
             else:
-                self.write_quoted_value(text_io, value)
+                self.write_quoted_value(ctx, value)
 
-    def write_unquoted_value(self, text_io: TextIOBase, value: str) -> None:
-        assert self.is_value_safe_to_be_unquoted(value)
+    def write_unquoted_value(
+        self,
+        ctx: RenderingContext,
+        value: str,
+    ) -> None:
+        text_io = ctx.text_io
+        assert self.is_value_safe_to_be_unquoted(ctx, value)
         text_io.write(value)
 
-    def write_quoted_value(self, text_io: TextIOBase, value: str) -> None:
-        text_io.write('"')
+    def write_quoted_value(
+        self,
+        ctx: RenderingContext,
+        value: str,
+    ) -> None:
+        text_io = ctx.text_io
+        text_io.write(ctx.quote_character)
         for char in value:
-            if char in self.escape_sequences:
-                text_io.write(self.escape_character)
-                text_io.write(self.escape_sequences[char])
+            if char in ctx.escape_sequences:
+                text_io.write(ctx.escape_character)
+                text_io.write(ctx.escape_sequences[char])
             else:
                 text_io.write(char)
-        text_io.write('"')
+        text_io.write(ctx.quote_character)
 
     # TODO: replace triple quotes inside the value, see TOML for reference
-    def write_triple_quoted_value(self, text_io: TextIOBase, value: str) -> None:
-        text_io.write('"""')
+    def write_triple_quoted_value(
+        self,
+        ctx: RenderingContext,
+        value: str,
+    ) -> None:
+        text_io = ctx.text_io
+        text_io.write(ctx.quote_character * 3)
         text_io.write(value)
-        text_io.write('"""')
+        text_io.write(ctx.quote_character * 3)
 
-    def render(self, text_io: TextIOBase, config: IniConfigBase) -> None:
+    def render(
+        self, text_io: TextIOBase, config: IniConfigBase, flavour: IniFlavour
+    ) -> None:
+        ctx = RenderingContext(
+            config=config,
+            flavour=flavour,
+            text_io=text_io,
+        )
+
         if config.unnamed_section.options or config.unnamed_section.comment:
-            self.write_section(text_io, config.unnamed_section)
+            self.write_section(ctx, config.unnamed_section)
 
         for section in config.sections.values():
-            self.write_section(text_io, section)
+            self.write_section(ctx, section)
 
         if config.trailing_comment:
-            self.write_spacer(text_io)
-            self.write_comments(text_io, config.trailing_comment)
+            self.write_spacer(ctx)
+            self.write_comments(ctx, config.trailing_comment)

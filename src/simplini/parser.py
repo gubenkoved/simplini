@@ -1,12 +1,13 @@
 import functools
 import logging
 from io import TextIOBase
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 from simplini.core import (
     IniConfigBase,
     IniConfigOption,
     IniConfigSection,
+    IniFlavour,
     SimpliniError,
     ValuePresentationStyle,
 )
@@ -75,13 +76,23 @@ class RecursiveDescentParserBase:
         else:
             return f'"{char}"'
 
-    def expect(self, expected: str, error: Optional[str] = None) -> str:
+    def expect(
+        self,
+        expected: Union[str, List[str]],
+        error: Optional[str] = None,
+    ) -> str:
         actual = self.text_io.read(1)
 
-        if actual != expected:
+        if isinstance(expected, str):
+            expected = [expected]
+
+        for value in expected:
+            if actual == value:
+                break
+        else:
             if not error:
                 error = (
-                    f"Expected {self.represent(expected)}, "
+                    f"Expected {' OR '.join(self.represent(v) for v in expected)}, "
                     f"but encountered {self.represent(actual)}"
                 )
             raise self.parsing_error(error)
@@ -184,18 +195,22 @@ class RecursiveDescentParserBase:
 
     def hinted_choice(
         self,
-        hinted_parse_fns: List[Tuple[Optional[str], ParseFn]],
+        hinted_parse_fns: List[Tuple[Union[Optional[str], List[str]], ParseFn]],
     ) -> Tuple[int, T]:
         position = self.text_io.tell()
         last_error = None
 
         for parser_idx, (hint, parse_fn) in enumerate(hinted_parse_fns):
             if hint:
-                peeked = self.peek(len(hint))
+                if isinstance(hint, str):
+                    hint = [hint]
 
-                # hint matched, so we know this branch is what we need
-                if hint == peeked:
-                    return parser_idx, parse_fn()
+                for single_hint_value in hint:
+                    peeked = self.peek(len(single_hint_value))
+
+                    # hint matched, so we know this branch is what we need
+                    if single_hint_value == peeked:
+                        return parser_idx, parse_fn()
             else:  # empty hint, attempt the branch and go to next if not successful
                 try:
                     return parser_idx, parse_fn()
@@ -207,60 +222,42 @@ class RecursiveDescentParserBase:
         raise last_error
 
 
-# TODO: extract grammatically important parts into a separate object like
-#  Flavour that will be shared (or used) across parser and renderer to provide
-#  consistent behaviour between parsing and rendering
 class IniParserImpl(RecursiveDescentParserBase):
     def __init__(
         self,
         text_io: TextIOBase,
-        allow_unquoted_values: bool,
-        key_value_separator: str,
-        comment_separator: str,
-        escape_character: str,
-        quote_character: str,
-        escape_sequences: Dict[str, str],
-        new_line: str,
+        flavour: IniFlavour,
     ):
         super().__init__(text_io)
-        self.allow_unquoted_values = allow_unquoted_values
-        self.key_value_separator = key_value_separator
-        self.comment_separator = comment_separator
-        self.escape_character = escape_character
-        self.quote_character = quote_character
-        self.escape_sequences = escape_sequences
-        self.new_line = new_line
+        self.flavour = flavour
 
     def resolve_escape_sequence(self, sequence: str) -> str:
-        if sequence not in self.escape_sequences:
+        if sequence not in self.flavour.escape_sequences:
             raise self.parsing_error(f"Unknown escape sequence: {sequence}")
-        return self.escape_sequences[sequence]
+        return self.flavour.escape_sequences[sequence]
 
     def parse_quoted_string(self) -> str:
         self.parse_whitespaces()
-
-        self.expect(self.quote_character)
+        self.expect(self.flavour.quote_character)
 
         value = ""
 
         while True:
             char = self.text_io.read(1)
-
-            if char == self.escape_character:
+            if char == self.flavour.escape_character:
                 next_char = self.text_io.read(1)
-                value += self.resolve_escape_sequence(char + next_char)
-            elif char == self.new_line:
+                value += self.resolve_escape_sequence(next_char)
+            elif char == self.flavour.new_line:
                 raise self.parsing_error(
                     "New line encountered before closing quoted string"
                 )
             elif char == "":
                 raise self.parsing_error("EOF encountered before closing quoted string")
             else:  # normal character
-                if char == self.quote_character:
+                if char == self.flavour.quote_character:
                     break
                 value += char
 
-        # trailing whitespaces
         self.parse_whitespaces()
 
         return value
@@ -268,25 +265,25 @@ class IniParserImpl(RecursiveDescentParserBase):
     def parse_triple_quoted_string(self) -> str:
         self.parse_whitespaces()
 
-        self.expect(self.quote_character)
-        self.expect(self.quote_character)
-        self.expect(self.quote_character)
+        self.expect(self.flavour.quote_character)
+        self.expect(self.flavour.quote_character)
+        self.expect(self.flavour.quote_character)
 
         value = ""
 
         while True:
             char = self.text_io.read(1)
 
-            if char == self.escape_character:
+            if char == self.flavour.escape_character:
                 next_char = self.text_io.read(1)
-                value += self.resolve_escape_sequence(char + next_char)
+                value += self.resolve_escape_sequence(next_char)
             else:  # normal character:
-                if char == self.quote_character:
+                if char == self.flavour.quote_character:
                     # check if it's the end of the triple-quoted string
                     next_char = self.text_io.read(1)
-                    if next_char == self.quote_character:
+                    if next_char == self.flavour.quote_character:
                         next_next_char = self.text_io.read(1)
-                        if next_next_char == self.quote_character:
+                        if next_next_char == self.flavour.quote_character:
                             break
                         else:
                             value += char + next_char + next_next_char
@@ -295,7 +292,6 @@ class IniParserImpl(RecursiveDescentParserBase):
                 else:
                     value += char
 
-        # trailing whitespaces
         self.parse_whitespaces()
 
         return value
@@ -304,7 +300,8 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.parse_whitespaces()
 
         _, value = self.accept_multiple(
-            lambda c: c not in (self.new_line, self.comment_separator),
+            lambda c: c
+            not in (self.flavour.new_line,) + tuple(self.flavour.comment_markers),
             # even if nothing is accepted we consider the value to be empty
         )
 
@@ -313,12 +310,11 @@ class IniParserImpl(RecursiveDescentParserBase):
         # strip trailing spaces
         value = value.rstrip()
 
-        if self.quote_character in value:
+        if self.flavour.quote_character in value:
             raise self.parsing_error(
                 "Quote character inside non-quoted strings is forbidden as ambiguous"
             )
 
-        # trailing whitespaces
         self.parse_whitespaces()
 
         return value
@@ -340,11 +336,11 @@ class IniParserImpl(RecursiveDescentParserBase):
         return option_name
 
     def parse_option_value(self) -> Tuple[str, ValuePresentationStyle]:
-        if self.allow_unquoted_values:
+        if self.flavour.allow_unquoted_values:
             parser_idx, value = self.hinted_choice(
                 [
-                    (self.quote_character * 3, self.parse_triple_quoted_string),
-                    (self.quote_character, self.parse_quoted_string),
+                    (self.flavour.quote_character * 3, self.parse_triple_quoted_string),
+                    (self.flavour.quote_character, self.parse_quoted_string),
                     (None, self.parse_unquoted_string),
                 ]
             )
@@ -360,9 +356,9 @@ class IniParserImpl(RecursiveDescentParserBase):
         else:
             parser_idx, value = self.hinted_choice(
                 [
-                    (self.quote_character * 3, self.parse_triple_quoted_string),
+                    (self.flavour.quote_character * 3, self.parse_triple_quoted_string),
                     (
-                        self.quote_character,
+                        self.flavour.quote_character,
                         self.parse_quoted_string,
                     ),
                 ]
@@ -380,7 +376,7 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.parse_whitespaces()
         option_name = self.parse_option_name()
         self.parse_whitespaces()
-        self.expect(self.key_value_separator)
+        self.expect(self.flavour.key_value_separators)
         self.parse_whitespaces()
 
         option_value, option_value_style = self.parse_option_value()
@@ -395,7 +391,7 @@ class IniParserImpl(RecursiveDescentParserBase):
         return option
 
     def is_whitespace(self, char: str) -> bool:
-        return char in (" ", "\t")
+        return char in self.flavour.whitespace_characters
 
     def parse_whitespaces(self) -> str:
         return self.accept_multiple(self.is_whitespace)[1]
@@ -415,21 +411,21 @@ class IniParserImpl(RecursiveDescentParserBase):
 
     def parse_comment_line(self) -> str:
         self.accept_multiple(self.is_whitespace)
-        self.expect(self.comment_separator)
+        self.expect(self.flavour.comment_markers)
 
         _, comment = self.accept_multiple(
-            lambda c: c != "\n",
+            lambda c: c != self.flavour.new_line,
         )
 
         # accept new line if present as well
-        self.accept("\n")
+        self.accept(self.flavour.new_line)
 
         # strip leading/trailing spaces
         return comment.strip()
 
     def parse_empty_line(self) -> str:
         self.accept_multiple(self.is_whitespace)
-        self.expect(self.new_line)
+        self.expect(self.flavour.new_line)
         return ""
 
     def parse_comments(self) -> List[str]:
@@ -457,7 +453,7 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.expect("[")
 
         _, section_name = self.accept_multiple(
-            lambda c: c not in ("]", "\n"),
+            lambda c: c not in ("]", self.flavour.new_line),
         )
 
         if not section_name:
@@ -466,13 +462,14 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.expect("]")
         self.accept_multiple(self.is_whitespace)
 
-        idx, result = self.hinted_choice(
+        alt_idx, result = self.hinted_choice(
             [
-                (self.comment_separator, self.parse_comment_line),
+                (self.flavour.comment_markers, self.parse_comment_line),
                 (
                     None,
                     lambda: self.expect(
-                        self.new_line, "Expected end of line after section header"
+                        self.flavour.new_line,
+                        "Expected end of line after section header",
                     ),
                 ),
             ]
@@ -480,7 +477,7 @@ class IniParserImpl(RecursiveDescentParserBase):
 
         section = IniConfigSection(section_name)
 
-        if idx == 0:
+        if alt_idx == 0:
             section.inline_comment = result
 
         section.comment = comments
@@ -532,21 +529,6 @@ class IniParserImpl(RecursiveDescentParserBase):
 
 
 class IniParser:
-    def __init__(self):
-        self.allow_unquoted_values = True
-        self.key_value_separator = "="
-        self.comment_separator = "#"
-        self.escape_character = "\\"
-        self.quote_character = '"'
-        self.escape_sequences = {
-            r"\n": "\n",
-            r"\t": "\t",
-            r"\\": "\\",
-            r"\"": '"',
-            "\\\n": "",
-        }
-        self.new_line = "\n"
-
     @staticmethod
     def position_context(
         text_io: TextIOBase,
@@ -607,16 +589,11 @@ class IniParser:
         self,
         text_io: TextIOBase,
         instance: IniConfigBase,
+        flavour: IniFlavour,
     ) -> None:
         parser = IniParserImpl(
             text_io,
-            allow_unquoted_values=self.allow_unquoted_values,
-            key_value_separator=self.key_value_separator,
-            comment_separator=self.comment_separator,
-            escape_character=self.escape_character,
-            quote_character=self.quote_character,
-            escape_sequences=self.escape_sequences,
-            new_line=self.new_line,
+            flavour=flavour,
         )
 
         try:

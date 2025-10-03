@@ -55,7 +55,10 @@ class WriteBackCases(CaseBase):
         )
 
         # read the config back and make sure data is still interpreted the same way
-        loaded_back = IniConfig.load(writeback_path)
+        loaded_back = IniConfig.load(
+            path=writeback_path,
+            flavour=config.flavour,
+        )
         self.assertEqual(
             config_data,
             loaded_back.as_dict(),
@@ -76,6 +79,22 @@ class WriteBackCases(CaseBase):
         self.generic_writeback_test(
             "sample.ini",
             "sample-writeback-prefer-unquoted.ini",
+            configure,
+        )
+
+    def test_sample_change_flavour(self):
+        def configure(config: IniConfig):
+            config.flavour.key_value_separators = [":"]
+            config.flavour.comment_markers = [";"]
+            config.flavour.quote_character = "'"
+            config.flavour.escape_sequences["'"] = "'"
+
+            # configure rendering style as well
+            config.renderer.values_rendering_style = ValuesRenderingStyle.PREFER_SOURCE
+
+        self.generic_writeback_test(
+            "sample.ini",
+            "sample-writeback-changed-flavour.ini",
             configure,
         )
 

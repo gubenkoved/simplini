@@ -12,6 +12,28 @@ class SimpliniError(Exception):
     pass
 
 
+class IniFlavour:
+    def __init__(self):
+        self.allow_unquoted_values = True
+        self.allow_unnamed_section = True
+        self.allow_inline_comments = True
+        self.quote_character = '"'
+        self.key_value_separators = ["="]
+        self.comment_markers = ["#", ";"]
+        self.escape_character = "\\"
+        self.escape_sequences = {
+            "n": "\n",
+            "t": "\t",
+            "\\": "\\",
+            '"': '"',
+            # when end of line is escaped,
+            # the newline is ignored
+            "\n": "",
+        }
+        self.new_line = "\n"
+        self.whitespace_characters = [" ", "\t"]
+
+
 class IniConfigOption:
     def __init__(self, key: str, value: str):
         super().__init__()
