@@ -63,22 +63,29 @@ class RecursiveDescentParserBase:
 
         return error
 
-    def expect(self, expected: str) -> str:
-        char = self.text_io.read(1)
+    @staticmethod
+    def represent(char: str) -> str:
+        if char == "\n":
+            return "LF"
+        elif char == "\r":
+            return "CR"
+        elif char == "":
+            return "EOF"
+        else:
+            return f'"{char}"'
 
-        if char != expected:
-            if char == "\n":
-                actual = "LF"
-            elif char == "\r":
-                actual = "CR"
-            elif char == "":
-                actual = "EOF"
-            else:
-                actual = f'"{char}"'
+    def expect(self, expected: str, error: Optional[str] = None) -> str:
+        actual = self.text_io.read(1)
 
-            raise self.parsing_error(f'Expected "{expected}", but encountered {actual}')
+        if actual != expected:
+            if not error:
+                error = (
+                    f'Expected {self.represent(expected)}, '
+                    f'but encountered {self.represent(actual)}'
+                )
+            raise self.parsing_error(error)
 
-        return char
+        return actual
 
     def expect_eof(self) -> None:
         char = self.text_io.read(1)
@@ -454,6 +461,8 @@ class IniParserImpl(RecursiveDescentParserBase):
             raise self.parsing_error("Expected section name to be non-empty")
 
         self.expect("]")
+        self.accept_multiple(self.is_whitespace)
+        self.expect(self.new_line, "Expected end of line after section name")
 
         section = IniConfigSection(section_name)
         section.comment = comments
