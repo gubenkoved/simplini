@@ -12,6 +12,7 @@ from simplini.core import (
 )
 
 T = TypeVar("T")
+ParseFn = Callable[[], T]
 
 
 LOGGER = logging.getLogger(__name__)
@@ -96,7 +97,8 @@ class RecursiveDescentParserBase:
         return None
 
     def accept(
-        self, value_or_predicate: Union[Callable[[str], bool], str]
+        self,
+        value_or_predicate: Union[Callable[[str], bool], str],
     ) -> Tuple[bool, Optional[str]]:
         char = self.text_io.read(1)
 
@@ -135,7 +137,7 @@ class RecursiveDescentParserBase:
 
         return True, chars
 
-    def multiple(self, parse_fn: Callable[[], T]) -> List[T]:
+    def multiple(self, parse_fn: ParseFn) -> List[T]:
         results = []
 
         while True:
@@ -149,7 +151,7 @@ class RecursiveDescentParserBase:
 
         return results
 
-    def optional(self, parse_fn: Callable[[], T]) -> Tuple[bool, Optional[T]]:
+    def optional(self, parse_fn: ParseFn) -> Tuple[bool, Optional[T]]:
         position = self.text_io.tell()
 
         try:
@@ -159,7 +161,7 @@ class RecursiveDescentParserBase:
             self.text_io.seek(position)
             return False, None
 
-    def choice(self, parse_fns: List[Callable[[], T]]) -> Tuple[int, T]:
+    def choice(self, parse_fns: List[ParseFn]) -> Tuple[int, T]:
         last_error = None
         position = self.text_io.tell()
 
@@ -181,7 +183,8 @@ class RecursiveDescentParserBase:
         return peeked
 
     def hinted_choice(
-        self, hinted_parse_fns: List[Tuple[Optional[str], Callable[[], T]]]
+        self,
+        hinted_parse_fns: List[Tuple[Optional[str], ParseFn]],
     ) -> Tuple[int, T]:
         position = self.text_io.tell()
         last_error = None
