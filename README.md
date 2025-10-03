@@ -1,5 +1,8 @@
 ![Simplini Logo](resources/logo.png)
 
+[![CI](https://github.com/gubenkoved/simplini/actions/workflows/ci.yml/badge.svg)](https://github.com/gubenkoved/simplini/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A **simple** INI file parser and writer for Python that works.
 
 ## Installation
