@@ -277,6 +277,11 @@ class IniParserImpl(RecursiveDescentParserBase):
             if char == self.flavour.escape_character:
                 next_char = self.text_io.read(1)
                 value += self.resolve_escape_sequence(next_char)
+            elif char == "":
+                # encountered EOF
+                raise self.parsing_error(
+                    "EOF encountered before closing triple quoted string"
+                )
             else:  # normal character:
                 if char == self.flavour.quote_character:
                     # check if it's the end of the triple-quoted string
@@ -489,6 +494,7 @@ class IniParserImpl(RecursiveDescentParserBase):
     def parse_comments_only_document_edge_case(self, config: IniConfigBase):
         comment = self.parse_comments()
 
+        self.accept_multiple(self.is_whitespace)
         self.expect_eof()
 
         config.unnamed_section.comment = comment
@@ -515,6 +521,7 @@ class IniParserImpl(RecursiveDescentParserBase):
 
         config.trailing_comment = self.parse_comments()
 
+        self.accept_multiple(self.is_whitespace)
         self.expect_eof()
 
         return config

@@ -132,6 +132,34 @@ class ParsingTestCases(CaseBase):
 
         self.assertEqual("allowed", config.sections["section"].inline_comment)
 
+    def test_single_comment_with_whitespace_on_next_line(self):
+        path = self.gen_temp_config("# comment\n ")
+
+        config = IniConfig.load(path)
+
+        self.assertEqual(["comment"], config.unnamed_section.comment)
+
+    def test_whitespace_before_comment(self):
+        path = self.gen_temp_config(" # comment1\n # comment2\n")
+
+        config = IniConfig.load(path)
+
+        self.assertEqual(["comment1", "comment2"], config.unnamed_section.comment)
+
+    def test_single_key_value_with_whitespace_on_next_line(self):
+        path = self.gen_temp_config("key = value\n ")
+
+        config = IniConfig.load(path)
+
+        self.assertEqual(
+            {
+                "": {
+                    "key": "value",
+                },
+            },
+            config.as_dict(),
+        )
+
 
 class InvalidConfigParsingCases(CaseBase):
     def test_not_closed_literal(self):
@@ -330,5 +358,13 @@ Line 1, Column 4, Byte 4
 
         with self.assertRaisesRegex(
             ParsingError, "Expected end of line after section header"
+        ):
+            IniConfig.load(path)
+
+    def test_not_closed_triple_quoted_literal(self):
+        path = self.gen_temp_config('foo="""')
+
+        with self.assertRaisesRegex(
+            ParsingError, "EOF encountered before closing triple quoted string"
         ):
             IniConfig.load(path)
