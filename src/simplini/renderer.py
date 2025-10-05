@@ -151,7 +151,10 @@ class IniConfigRenderer:
     ) -> bool:
         return (
             s == s.strip()
-            and not any(c in s for c in ctx.flavour.comment_markers)
+            and (
+                not ctx.flavour.allow_inline_comments
+                or not any(c in s for c in ctx.flavour.comment_markers)
+            )
             and not s.startswith(ctx.quote_character)
             and not s.endswith(ctx.quote_character)
             and ctx.new_line not in s

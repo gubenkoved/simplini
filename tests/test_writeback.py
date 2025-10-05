@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Callable, Optional
 
-from simplini import IniConfig
+from simplini import IniConfig, IniFlavour
 from simplini.renderer import ValuesRenderingStyle
 from tests.common import CaseBase
 
@@ -18,15 +18,18 @@ class WriteBackCases(CaseBase):
         self,
         source_path: str,
         writeback_path: str,
-        configure_fn: Optional[Callable[[IniConfig], None]] = None,
+        flavour: Optional[IniFlavour] = None,
+        post_load_configure_fn: Optional[Callable[[IniConfig], None]] = None,
     ):
         source_path = os.path.join(FIXTURES_DIR, source_path)
         writeback_path = os.path.join(FIXTURES_DIR, writeback_path)
 
-        config = IniConfig.load(source_path)
+        flavour: IniFlavour | None = flavour
 
-        if configure_fn:
-            configure_fn(config)
+        config = IniConfig.load(source_path, flavour=flavour)
+
+        if post_load_configure_fn:
+            post_load_configure_fn(config)
 
         temp_path = self.get_temp_path()
 
@@ -79,7 +82,7 @@ class WriteBackCases(CaseBase):
         self.generic_writeback_test(
             "sample.ini",
             "sample-writeback-prefer-unquoted.ini",
-            configure,
+            post_load_configure_fn=configure,
         )
 
     def test_sample_change_flavour(self):
@@ -95,7 +98,7 @@ class WriteBackCases(CaseBase):
         self.generic_writeback_test(
             "sample.ini",
             "sample-writeback-changed-flavour.ini",
-            configure,
+            post_load_configure_fn=configure,
         )
 
     def test_sample_prefer_source(self):
@@ -105,13 +108,41 @@ class WriteBackCases(CaseBase):
         self.generic_writeback_test(
             "sample.ini",
             "sample-writeback-prefer-source.ini",
-            configure,
+            post_load_configure_fn=configure,
         )
 
     def test_unquoted_value(self):
         self.generic_writeback_test(
             "unquoted-value.ini",
             "unquoted-value-writeback.ini",
+        )
+
+    def test_unquoted_value_no_inline_comments(self):
+        def configure(config: IniConfig):
+            config.flavour.allow_inline_comments = False
+
+        flavour = IniFlavour()
+        flavour.allow_inline_comments = False
+
+        self.generic_writeback_test(
+            "unquoted-value.ini",
+            "unquoted-value-writeback-no-inline-comments.ini",
+            flavour=flavour,
+            post_load_configure_fn=configure,
+        )
+
+    def test_unquoted_value_no_inline_comments_prefer_source_style(self):
+        def configure(config: IniConfig):
+            config.renderer.values_rendering_style = ValuesRenderingStyle.PREFER_SOURCE
+
+        flavour = IniFlavour()
+        flavour.allow_inline_comments = False
+
+        self.generic_writeback_test(
+            "unquoted-value.ini",
+            "unquoted-value-writeback-no-inline-comments-prefer-source.ini",
+            flavour=flavour,
+            post_load_configure_fn=configure,
         )
 
     def test_comments_with_new_lines(self):

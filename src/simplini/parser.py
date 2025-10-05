@@ -306,11 +306,14 @@ class IniParserImpl(RecursiveDescentParserBase):
     def parse_unquoted_string(self) -> str:
         self.parse_whitespaces()
 
-        _, value = self.accept_multiple(
-            lambda c: c
-            not in (self.flavour.new_line,) + tuple(self.flavour.comment_markers),
-            # even if nothing is accepted we consider the value to be empty
-        )
+        def is_acceptable(c: str) -> bool:
+            if not self.flavour.allow_inline_comments:
+                return c not in self.flavour.new_line
+            return c not in (
+                (self.flavour.new_line,) + tuple(self.flavour.comment_markers)
+            )
+
+        _, value = self.accept_multiple(is_acceptable)
 
         assert value is not None
 

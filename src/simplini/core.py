@@ -16,6 +16,8 @@ class IniFlavour:
     def __init__(self):
         self.allow_unquoted_values = True
         self.allow_unnamed_section = True
+        # applies to key-value pairs only, as inline comments for sections
+        # are not ambiguous anyway
         self.allow_inline_comments = True
         self.quote_character = '"'
         self.key_value_separators = ["="]
