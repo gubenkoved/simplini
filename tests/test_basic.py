@@ -1,7 +1,7 @@
 import logging
 import os
 
-from simplini import IniConfig
+from simplini import IniConfig, IniConfigOption
 from tests.common import CaseBase
 
 LOGGER = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class BasicCases(CaseBase):
             LOGGER.info(f'checking case #{case_idx}: "{value}"')
             path = self.get_temp_path()
             config = IniConfig()
-            config.unnamed_section.set("value", value)
+            config.unnamed_section.set_value("value", value)
             config.save(path)
 
             # load it back
@@ -50,7 +50,7 @@ class BasicCases(CaseBase):
             LOGGER.info(f'checking case #{case_idx}: "{option_name}"')
             path = self.get_temp_path()
             config = IniConfig()
-            config.unnamed_section.set(option_name, "some_value")
+            config.unnamed_section.set_value(option_name, "some_value")
             config.save(path)
 
             # load it back
@@ -60,8 +60,8 @@ class BasicCases(CaseBase):
     def test_unnamed_section_only_save_and_load(self):
         config = IniConfig()
 
-        config.unnamed_section.set("app_name", "My App")
-        config.unnamed_section.set("version", "1.0.0")
+        config.unnamed_section.set_value("app_name", "My App")
+        config.unnamed_section.set_value("version", "1.0.0")
 
         config.unnamed_section.comment = [
             "Configuration for My App",
@@ -83,26 +83,26 @@ class BasicCases(CaseBase):
             "that spans multiple lines",
         ]
 
-        config.unnamed_section.set("foo", "bar")
-        config.unnamed_section.set("bar", "baz")
+        config.unnamed_section.set_value("foo", "bar")
+        config.unnamed_section.set_value("bar", "baz")
 
         foo_sect = config.ensure_section("foo")
         foo_sect.comment = ["this is section comment", "that has multiple lines"]
-        foo_sect.set("val1", "here")
-        opt = foo_sect.set("val2", "here2")
+        foo_sect.set_value("val1", "here")
+        opt = foo_sect.set_value("val2", "here2")
         opt.comment = [
             "Here is option",
             "comment as well",
         ]
 
-        foo_sect.set("val3", "has back\\slash")
-        val4_opt = foo_sect.set("val4", "")
+        foo_sect.set_value("val3", "has back\\slash")
+        val4_opt = foo_sect.set_value("val4", "")
         val4_opt.comment = ["empty"]
 
-        foo_sect.set("val5", "multi\nline\nvalue")
+        foo_sect.set_value("val5", "multi\nline\nvalue")
 
         bar_sect = config.ensure_section("bar")
-        bar_sect.set("foo", "bar")
+        bar_sect.set_value("foo", "bar")
 
         path = self.get_temp_path()
         config.save(path)
@@ -126,11 +126,11 @@ class BasicCases(CaseBase):
     def test_config_as_dict(self):
         config = IniConfig()
 
-        config.unnamed_section.set("foo", "bar")
+        config.unnamed_section.set_value("foo", "bar")
 
         foo_sect = config.ensure_section("foo")
-        foo_sect.set("val1", "here")
-        foo_sect.set("val2", "here2")
+        foo_sect.set_value("val1", "here")
+        foo_sect.set_value("val2", "here2")
 
         self.assertEqual(
             {
@@ -145,18 +145,74 @@ class BasicCases(CaseBase):
             config.as_dict(),
         )
 
-    def test_set_config_value(self):
+    def test_set_config_using_value(self):
         config = IniConfig()
+
+        self.assertNotIn("core", config)
 
         section = config.ensure_section("core")
 
-        section.set("foo", "bar")
-        section.set("foo", "bar2")
+        self.assertIn("core", config)
+
+        self.assertNotIn("foo", section)
+
+        section.set_value("foo", "bar")
+        section.set_value("foo", "bar2")
+
+        self.assertIn("foo", section)
+
+        config.set_value("spam", "foo")
+        config.set_value("spam", "eggs", section_name="foo")
+
+        self.assertEqual(
+            {
+                "": {
+                    "spam": "foo",
+                },
+                "core": {
+                    "foo": "bar2",
+                },
+                "foo": {
+                    "spam": "eggs",
+                },
+            },
+            config.as_dict(),
+        )
+
+        # drop sections and some options
+        del config["foo"]
+        del config.unnamed_section["spam"]
 
         self.assertEqual(
             {
                 "core": {
                     "foo": "bar2",
+                },
+            },
+            config.as_dict(),
+        )
+
+    def test_get_set_using_objects(self):
+        config = IniConfig()
+
+        config.set_option(IniConfigOption("foo", "bar"))
+        config.set_option(IniConfigOption("foo", "bar2"))
+        config.set_option(IniConfigOption("spam", "eggs"), section_name="core")
+
+        section = config["core"]
+
+        section.set_option(
+            IniConfigOption("bar", "baz"),
+        )
+
+        self.assertEqual(
+            {
+                "": {
+                    "foo": "bar2",
+                },
+                "core": {
+                    "spam": "eggs",
+                    "bar": "baz",
                 },
             },
             config.as_dict(),

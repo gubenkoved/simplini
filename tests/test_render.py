@@ -12,7 +12,7 @@ class RenderCases(CaseBase):
     def test_simple_option(self):
         config = IniConfig()
 
-        option = config.unnamed_section.set("val1", "value1")
+        option = config.unnamed_section.set_value("val1", "value1")
         option.comment = [
             "line1",
             "line2",
@@ -35,14 +35,14 @@ class RenderCases(CaseBase):
             "section comment line2",
         ]
 
-        option = section.set("val1", "value1")
+        option = section.set_value("val1", "value1")
         option.comment = [
             "option comment line1",
             "option comment line2",
         ]
         option.inline_comment = "inline comment"
 
-        section.set("val2", "value2")
+        section.set_value("val2", "value2")
 
         path = self.get_temp_path()
         config.save(path)
@@ -56,12 +56,12 @@ class RenderCases(CaseBase):
         config = IniConfig()
 
         section1 = config.ensure_section("foo")
-        section1.set("foo", "foo-value")
-        section1.set("bar", "bar-value")
+        section1.set_value("foo", "foo-value")
+        section1.set_value("bar", "bar-value")
 
         section2 = config.ensure_section("bar")
-        section2.set("foo", "foo-value")
-        section2.set("bar", "bar-value")
+        section2.set_value("foo", "foo-value")
+        section2.set_value("bar", "bar-value")
 
         path = self.get_temp_path()
         config.save(path)
@@ -73,7 +73,7 @@ class RenderCases(CaseBase):
 
     def test_rendering_error_when_unnamed_section_is_not_allowed(self):
         config = IniConfig()
-        config.unnamed_section.set("foo", "value")
+        config.unnamed_section.set_value("foo", "value")
 
         config.flavour.allow_unnamed_section = False
 
