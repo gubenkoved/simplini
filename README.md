@@ -47,26 +47,40 @@ from simplini import IniConfig
 config = IniConfig()
 
 # Add values to the default section
-config.unnamed_section.set("app_name", "My App")
-config.unnamed_section.set("version", "1.0.0")
+config.set("app_name", "My App")
+config.set("version", "1.0.0")
+
+# set values for some named section
+config.set("db", "sql", section_name="core")
 
 # Add a comment to the default section
-config.unnamed_section.comment = ["Configuration for My App", "Created on 2025-09-28"]
+config.unnamed_section.comment = [
+    "Configuration for My App",
+    "Created on 2025-09-28",
+]
 
 # Save to file
 config.save("config.ini")
 
 # Load from file
 loaded_config = IniConfig.load("config.ini")
-app_name = loaded_config.unnamed_section["app_name"].value  # "My App"
+app_name = loaded_config.get("app_name")  # My App
+core_db = loaded_config.get("db", section_name="core")  # sql
 ```
 
 Example config file output:
 ```ini
 # Configuration for My App
 # Created on 2025-09-28
+
 app_name = "My App"
+
 version = "1.0.0"
+
+[core]
+
+db = "sql"
+
 ```
 
 ## License

@@ -412,12 +412,12 @@ class IniParserImpl(RecursiveDescentParserBase):
         for option in options:
             assert option is not None
 
-            if option.key in section.options:
+            if option.name in section.options:
                 raise self.parsing_error(
-                    f'Option "{option.key}" was present multiple times'
+                    f'Option "{option.name}" was present multiple times'
                 )
 
-            section.options[option.key] = option
+            section.options[option.name] = option
 
     def parse_comment_line(self) -> str:
         self.accept_multiple(self.is_whitespace)

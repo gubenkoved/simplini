@@ -18,22 +18,37 @@ class ParsingTestCases(CaseBase):
 
         unnamed_section = config.unnamed_section
 
-        self.assertEqual("value", unnamed_section["value_1"].value)
-        self.assertEqual("value with spaces", unnamed_section["value_2"].value)
-        self.assertEqual('value with "quotes"', unnamed_section["value_3"].value)
-        self.assertEqual("value with 'single quotes'", unnamed_section["value_4"].value)
-        self.assertEqual("multiline\nvalue", unnamed_section["value_5"].value)
+        self.assertEqual("value", unnamed_section["value_1"])
+        self.assertEqual("value with spaces", unnamed_section["value_2"])
+        self.assertEqual('value with "quotes"', unnamed_section["value_3"])
+        self.assertEqual("value with 'single quotes'", unnamed_section["value_4"])
+        self.assertEqual("multiline\nvalue", unnamed_section["value_5"])
 
         # check comments
-        self.assertEqual(["comment for value1"], unnamed_section["value_1"].comment)
+        self.assertEqual(
+            ["comment for value1"],
+            unnamed_section.get_option("value_1").comment,
+        )
         self.assertEqual(
             "inline comment for value1",
-            unnamed_section["value_1"].inline_comment,
+            unnamed_section.get_option("value_1").inline_comment,
         )
-        self.assertEqual(["comment for value2"], unnamed_section["value_2"].comment)
-        self.assertEqual(["comment for value3"], unnamed_section["value_3"].comment)
-        self.assertEqual([], unnamed_section["value_4"].comment)
-        self.assertEqual(["comment for value5"], unnamed_section["value_5"].comment)
+        self.assertEqual(
+            ["comment for value2"],
+            unnamed_section.get_option("value_2").comment,
+        )
+        self.assertEqual(
+            ["comment for value3"],
+            unnamed_section.get_option("value_3").comment,
+        )
+        self.assertEqual(
+            [],
+            unnamed_section.get_option("value_4").comment,
+        )
+        self.assertEqual(
+            ["comment for value5"],
+            unnamed_section.get_option("value_5").comment,
+        )
 
         self.assertEqual(["custom"], list(config.sections))
 
@@ -47,27 +62,27 @@ class ParsingTestCases(CaseBase):
             custom_section.comment,
         )
 
-        self.assertEqual("", custom_section["value_1"].value)
-        self.assertEqual("", custom_section["value_2"].value)
-        self.assertEqual("", custom_section["value_3"].value)
-        self.assertEqual("hello", custom_section["value_4"].value)
-        self.assertEqual("world", custom_section["value_5"].value)
+        self.assertEqual("", custom_section["value_1"])
+        self.assertEqual("", custom_section["value_2"])
+        self.assertEqual("", custom_section["value_3"])
+        self.assertEqual("hello", custom_section["value_4"])
+        self.assertEqual("world", custom_section["value_5"])
 
     def test_unquoted_values(self):
         fixture_path = os.path.join(FIXTURES_DIR, "unquoted-value.ini")
 
         config = IniConfig.load(fixture_path)
 
-        self.assertEqual("sample", config.unnamed_section["value1"].value)
+        self.assertEqual("sample", config.unnamed_section["value1"])
         self.assertEqual(
             "sample with leading and trailing spaces",
-            config.unnamed_section["value2"].value,
+            config.unnamed_section["value2"],
         )
-        self.assertEqual("", config.unnamed_section["value3"].value)
+        self.assertEqual("", config.unnamed_section["value3"])
 
-        self.assertEqual("value", config.unnamed_section["value4"].value)
+        self.assertEqual("value", config.unnamed_section["value4"])
         self.assertEqual(
-            "inline comment", config.unnamed_section["value4"].inline_comment
+            "inline comment", config.unnamed_section.get_option("value4").inline_comment
         )
 
     def test_comment_only_file(self):
@@ -94,7 +109,7 @@ class ParsingTestCases(CaseBase):
                 "with new lines in between",
                 "and even more lines in between",
             ],
-            config.unnamed_section["value"].comment,
+            config.unnamed_section.get_option("value").comment,
         )
 
         self.assertEqual(
@@ -113,7 +128,7 @@ class ParsingTestCases(CaseBase):
         foo_section = config.sections["foo"]
         self.assertEqual(
             "this is\na multiline\nvalue",
-            foo_section["value"].value,
+            foo_section["value"],
         )
 
     def test_whitespaces_after_section_header_are_allowed(self):
@@ -123,7 +138,7 @@ class ParsingTestCases(CaseBase):
 
         self.assertIn("section", config.sections)
         self.assertIn("foo", config.sections["section"].options)
-        self.assertEqual("bar", config.sections["section"]["foo"].value)
+        self.assertEqual("bar", config.sections["section"]["foo"])
 
     def test_comment_after_section_header(self):
         path = self.gen_temp_config("[section] # allowed\nfoo=bar")
@@ -147,14 +162,14 @@ class ParsingTestCases(CaseBase):
         self.assertEqual(["comment1", "comment2"], config.trailing_comment)
 
     def test_single_key_value_with_whitespace_on_next_line(self):
-        path = self.gen_temp_config("key = value\n ")
+        path = self.gen_temp_config("name = value\n ")
 
         config = IniConfig.load(path)
 
         self.assertEqual(
             {
                 "": {
-                    "key": "value",
+                    "name": "value",
                 },
             },
             config.as_dict(),
@@ -334,7 +349,7 @@ class InvalidConfigParsingCases(CaseBase):
             IniConfig.load(path)
 
     def test_invalid_key_name(self):
-        path = self.gen_temp_config('foo"key = bad')
+        path = self.gen_temp_config('foo"name = bad')
 
         with self.assertRaisesRegex(
             ParsingError, 'Expected "=", but encountered """'
@@ -347,14 +362,14 @@ class InvalidConfigParsingCases(CaseBase):
             """Expected "=", but encountered ""\"
 
   ...
-> foo"key = bad
+> foo"name = bad
      ^
 Line 1, Column 4, Byte 4
 """,
         )
 
     def test_key_defined_on_same_line_with_section_is_not_allowed(self):
-        path = self.gen_temp_config("[section] key = value")
+        path = self.gen_temp_config("[section] name = value")
 
         with self.assertRaisesRegex(
             ParsingError, "Expected end of line after section header"

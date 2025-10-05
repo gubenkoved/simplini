@@ -39,16 +39,16 @@ class IniFlavour:
 
 
 class IniConfigOption:
-    def __init__(self, key: str, value: str):
+    def __init__(self, name: str, value: str):
         super().__init__()
-        self.key = key
+        self.name = name
         self.value = value
         self.comment: Optional[List[str]] = None
         self.inline_comment: Optional[str] = None
         self.style: Optional[ValuePresentationStyle] = None
 
     def __repr__(self) -> str:
-        return f"IniConfigOption({self.key!r}, {self.value!r})"
+        return f"IniConfigOption({self.name!r}, {self.value!r})"
 
 
 class IniConfigSection:
@@ -65,13 +65,7 @@ class IniConfigSection:
     ) -> Optional[IniConfigOption]:
         return self.options.get(option_name)
 
-    def set_option(
-        self,
-        option: IniConfigOption,
-    ):
-        self.options[option.key] = option
-
-    def get_value(
+    def get(
         self,
         option_name: str,
     ) -> Optional[str]:
@@ -80,7 +74,7 @@ class IniConfigSection:
             return None
         return option.value
 
-    def set_value(
+    def set(
         self,
         option_name: str,
         value: str,
@@ -94,11 +88,18 @@ class IniConfigSection:
     def __getitem__(
         self,
         option_name: str,
-    ) -> IniConfigOption:
-        option = self.get_option(option_name)
-        if option is None:
+    ) -> str:
+        value = self.get(option_name)
+        if value is None:
             raise KeyError(f'Option "{option_name}" not found in section "{self.name}"')
-        return option
+        return value
+
+    def __setitem__(
+        self,
+        option_name: str,
+        value: str,
+    ):
+        self.set(option_name, value)
 
     def __contains__(
         self,
@@ -118,7 +119,7 @@ class IniConfigSection:
         return f"IniConfigSection({self.name!r})"
 
     def as_dict(self) -> Dict:
-        return {option.key: option.value for option in self.options.values()}
+        return {option.name: option.value for option in self.options.values()}
 
 
 class IniConfigBase:
@@ -157,16 +158,7 @@ class IniConfigBase:
             return None
         return section.get_option(option_name)
 
-    def set_option(
-        self,
-        option: IniConfigOption,
-        section_name: Optional[str] = None,
-    ) -> IniConfigOption:
-        section = self.ensure_section(section_name)
-        section.set_option(option)
-        return option
-
-    def get_value(
+    def get(
         self,
         option_name: str,
         section_name: Optional[str] = None,
@@ -177,17 +169,17 @@ class IniConfigBase:
             section = self.get_section(section_name)
         if section is None:
             return None
-        return section.get_value(option_name)
+        return section.get(option_name)
 
-    def set_value(
+    def set(
         self,
         key: str,
         value: str,
         section_name: Optional[str] = None,
     ) -> IniConfigOption:
         section = self.ensure_section(section_name)
-        section.set_value(key, value)
-        return section[key]
+        option = section.set(key, value)
+        return option
 
     def __getitem__(self, section_name: str) -> IniConfigSection:
         if section_name not in self.sections:

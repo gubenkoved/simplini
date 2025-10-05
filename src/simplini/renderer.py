@@ -134,7 +134,7 @@ class IniConfigRenderer:
         self.write_spacer(ctx)
         self.write_comments(ctx, option.comment)
 
-        text_io.write(option.key)
+        text_io.write(option.name)
         text_io.write(f" {ctx.key_value_separator} ")
 
         self.write_option_value(ctx, option)
