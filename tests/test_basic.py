@@ -144,3 +144,20 @@ class BasicCases(CaseBase):
             },
             config.as_dict(),
         )
+
+    def test_set_config_value(self):
+        config = IniConfig()
+
+        section = config.ensure_section("core")
+
+        section.set("foo", "bar")
+        section.set("foo", "bar2")
+
+        self.assertEqual(
+            {
+                "core": {
+                    "foo": "bar2",
+                },
+            },
+            config.as_dict(),
+        )

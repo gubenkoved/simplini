@@ -58,9 +58,11 @@ class IniConfigSection:
         self.inline_comment: Optional[str] = None
 
     def set(self, key: str, value: str) -> IniConfigOption:
-        option = self.get(key) or IniConfigOption(key, value)
-        self.options[key] = option
-        return option
+        if key in self.options:
+            self.options[key].value = value
+        else:
+            self.options[key] = IniConfigOption(key, value)
+        return self.options[key]
 
     def get(self, key: str) -> Optional[IniConfigOption]:
         return self.options.get(key)
