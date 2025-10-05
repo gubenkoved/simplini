@@ -237,6 +237,8 @@ class IniConfigRenderer:
         )
 
         if config.unnamed_section.options or config.unnamed_section.comment:
+            if not flavour.allow_unnamed_section:
+                raise RenderingError("Unnamed section is not allowed")
             self.write_section(ctx, config.unnamed_section)
 
         for section in config.sections.values():

@@ -1,6 +1,7 @@
 import os
 
 from simplini import IniConfig
+from simplini.renderer import RenderingError
 from tests.common import CaseBase
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -69,3 +70,14 @@ class RenderCases(CaseBase):
             os.path.join(FIXTURES_DIR, "render-multiple-sections.ini"),
             self.get_text(path),
         )
+
+    def test_rendering_error_when_unnamed_section_is_not_allowed(self):
+        config = IniConfig()
+        config.unnamed_section.set("foo", "value")
+
+        config.flavour.allow_unnamed_section = False
+
+        path = self.get_temp_path()
+
+        with self.assertRaisesRegex(RenderingError, "Unnamed section is not allowed"):
+            config.save(path)

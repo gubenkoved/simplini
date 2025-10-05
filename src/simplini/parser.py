@@ -59,8 +59,10 @@ class RecursiveDescentParserBase:
         error = ParsingError(message)
         error.position = position
 
-        # update deepest error
-        if self.deepest_error is None or position > self.deepest_error.position:
+        # update the deepest error
+        # if the position is the same as the deepest update the message too
+        # as it might provide an enhanced wording
+        if self.deepest_error is None or position >= self.deepest_error.position:
             self.deepest_error = error
 
         return error
@@ -497,14 +499,19 @@ class IniParserImpl(RecursiveDescentParserBase):
         self.accept_multiple(self.is_whitespace)
         self.expect_eof()
 
-        config.unnamed_section.comment = comment
+        config.trailing_comment = comment
 
         return config
 
     def parse_normal(self, config: IniConfigBase):
         # parse unnamed section
         config.unnamed_section = IniConfigSection(None)
+
         self.parse_section_body(config.unnamed_section)
+
+        if not self.flavour.allow_unnamed_section:
+            if config.unnamed_section.options:
+                raise self.parsing_error("Unnamed section is not allowed")
 
         # then any number of other sections
         sections = self.multiple(self.parse_section)

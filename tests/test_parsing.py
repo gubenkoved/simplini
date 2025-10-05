@@ -1,7 +1,7 @@
 import logging
 import os
 
-from simplini import IniConfig, ParsingError
+from simplini import IniConfig, IniFlavour, ParsingError
 from tests.common import CaseBase
 
 LOGGER = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class ParsingTestCases(CaseBase):
 
         self.assertEqual(
             ["this is just a comment", "and nothing else"],
-            config.unnamed_section.comment,
+            config.trailing_comment,
         )
 
     def test_new_lines_inside_comments(self):
@@ -137,14 +137,14 @@ class ParsingTestCases(CaseBase):
 
         config = IniConfig.load(path)
 
-        self.assertEqual(["comment"], config.unnamed_section.comment)
+        self.assertEqual(["comment"], config.trailing_comment)
 
     def test_whitespace_before_comment(self):
         path = self.gen_temp_config(" # comment1\n # comment2\n")
 
         config = IniConfig.load(path)
 
-        self.assertEqual(["comment1", "comment2"], config.unnamed_section.comment)
+        self.assertEqual(["comment1", "comment2"], config.trailing_comment)
 
     def test_single_key_value_with_whitespace_on_next_line(self):
         path = self.gen_temp_config("key = value\n ")
@@ -368,3 +368,13 @@ Line 1, Column 4, Byte 4
             ParsingError, "EOF encountered before closing triple quoted string"
         ):
             IniConfig.load(path)
+
+    def test_unnamed_section_when_not_allowed(self):
+        path = self.gen_temp_config("foo = bar")
+        with self.assertRaisesRegex(
+            ParsingError,
+            "Unnamed section is not allowed",
+        ):
+            flavour = IniFlavour()
+            flavour.allow_unnamed_section = False
+            IniConfig.load(path, flavour=flavour)
