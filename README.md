@@ -43,43 +43,53 @@ Basic usage example:
 ```python
 from simplini import IniConfig
 
-# Create a new INI config
+# create a new INI config
 config = IniConfig()
 
-# Add values to the default section
+# add values to the default section
 config.set("app_name", "My App")
 config.set("version", "1.0.0")
 
-# set values for some named section
-config.set("db", "sql", section_name="core")
+# you can use section object to interact with section settings
+db_section = config.ensure_section("database")
+db_section.comment = ['Contains database settings']
 
-# Add a comment to the default section
-config.unnamed_section.comment = [
-    "Configuration for My App",
-    "Created on 2025-09-28",
+db_provider_opt = db_section.set("provider", "mysql")
+db_provider_opt.comment = [
+    "Controls the DB provider to be used"
 ]
 
-# Save to file
+# ... or set values directly via root config object
+config.set("version", "1.2.3", section_name="database")
+
+# save to file
 config.save("config.ini")
 
-# Load from file
+# load back from file
 loaded_config = IniConfig.load("config.ini")
+
 app_name = loaded_config.get("app_name")  # My App
-core_db = loaded_config.get("db", section_name="core")  # sql
+version = loaded_config.get("version")  # 1.0.0
+
+db_section = loaded_config.get_section("database")
+
+db_provider = db_section.get("provider")  # mysql
+db_version = db_section.get("version")  # 1.2.3
 ```
 
 Example config file output:
 ```ini
-# Configuration for My App
-# Created on 2025-09-28
-
 app_name = "My App"
 
 version = "1.0.0"
 
-[core]
+# Contains database settings
+[database]
 
-db = "sql"
+# Controls the DB provider to be used
+provider = "mysql"
+
+version = "1.2.3"
 
 ```
 

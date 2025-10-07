@@ -14,35 +14,45 @@ class BasicCases(CaseBase):
     def test_from_readme(self):
         path = self.get_temp_path()
 
-        # Create a new INI config
+        # create a new INI config
         config = IniConfig()
 
-        # Add values to the default section
+        # add values to the default section
         config.set("app_name", "My App")
         config.set("version", "1.0.0")
 
-        # set values for some named section
-        config.set("db", "sql", section_name="core")
+        # you can use section object to interact with section settings
+        db_section = config.ensure_section("database")
+        db_section.comment = ['Contains database settings']
 
-        # Add a comment to the default section
-        config.unnamed_section.comment = [
-            "Configuration for My App",
-            "Created on 2025-09-28",
+        db_provider_opt = db_section.set("provider", "mysql")
+        db_provider_opt.comment = [
+            "Controls the DB provider to be used"
         ]
 
-        # Save to file
+        # ... or set values directly via root config object
+        config.set("version", "1.2.3", section_name="database")
+
+        # save to file
         config.save(path)
 
-        # Load back
+        # load back from file
         loaded_config = IniConfig.load(path)
 
         app_name = loaded_config.get("app_name")
         version = loaded_config.get("version")
-        core_db = loaded_config.get("db", section_name="core")
+
+        db_section = loaded_config.get_section("database")
+
+        self.assertIsNotNone(db_section)
+
+        db_provider = db_section.get("provider")
+        db_version = db_section.get("version")
 
         self.assertEqual("My App", app_name)
         self.assertEqual("1.0.0", version)
-        self.assertEqual("sql", core_db)
+        self.assertEqual("mysql", db_provider)
+        self.assertEqual("1.2.3", db_version)
 
         with open(path, "r") as file:
             actual_config = file.read()
