@@ -1,7 +1,7 @@
 import os
 
 from simplini import IniConfig
-from simplini.renderer import RenderingError
+from simplini.renderer import RenderingError, ValuePresentationStyle
 from tests.common import CaseBase
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -81,3 +81,30 @@ class RenderCases(CaseBase):
 
         with self.assertRaisesRegex(RenderingError, "Unnamed section is not allowed"):
             config.save(path)
+
+    def test_triple_quotes_inside_triple_quoted_value(self):
+        config = IniConfig()
+
+        section = config.ensure_section("foo")
+
+        option1 = section.set("value1", 'This\nis """ tricky...\nRight?')
+        option2 = section.set("value2", "This is simple\nmultiline\nvalue")
+        option3 = section.set(
+            "value3", "There are\n  leading\nand trailing  \nspaces in this one"
+        )
+
+        for option in [option1, option2, option3]:
+            option.style = ValuePresentationStyle.TRIPLE_QUOTED
+
+        path = self.get_temp_path()
+
+        config.save(path)
+
+        self.assertExpectedConfig(
+            os.path.join(FIXTURES_DIR, "render-triple-quoted.ini"),
+            self.get_text(path),
+        )
+
+        # read-back and ensure the same content
+        config2 = IniConfig.load(path)
+        self.assertEqual(config.as_dict(), config2.as_dict())

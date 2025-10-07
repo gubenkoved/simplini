@@ -285,17 +285,14 @@ class IniParserImpl(RecursiveDescentParserBase):
                     "EOF encountered before closing triple quoted string"
                 )
             else:  # normal character:
-                if char == self.flavour.quote_character:
-                    # check if it's the end of the triple-quoted string
-                    next_char = self.text_io.read(1)
-                    if next_char == self.flavour.quote_character:
-                        next_next_char = self.text_io.read(1)
-                        if next_next_char == self.flavour.quote_character:
-                            break
-                        else:
-                            value += char + next_char + next_next_char
-                    else:
-                        value += char + next_char
+                if (
+                    char == self.flavour.quote_character
+                    and self.peek(2) == self.flavour.quote_character * 2
+                ):
+                    # we detected the closing triple quote,
+                    # consume the two quote characters and stop reading
+                    self.text_io.read(2)
+                    break
                 else:
                     value += char
 

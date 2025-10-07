@@ -219,7 +219,6 @@ class IniConfigRenderer:
                 text_io.write(char)
         text_io.write(ctx.quote_character)
 
-    # TODO: replace triple quotes inside the value, see TOML for reference
     def write_triple_quoted_value(
         self,
         ctx: RenderingContext,
@@ -227,7 +226,19 @@ class IniConfigRenderer:
     ) -> None:
         text_io = ctx.text_io
         text_io.write(ctx.quote_character * 3)
-        text_io.write(value)
+        # inside the triple quoted values we only need to escape the triple
+        # quote itself, and escape character if it is used literally
+        idx = 0
+        while idx < len(value):
+            if value[idx] == ctx.escape_character:
+                text_io.write(ctx.escape_character * 2)
+            elif value.startswith(ctx.quote_character * 3, idx):
+                text_io.write(ctx.escape_character)
+                text_io.write(ctx.quote_character * 3)
+                idx += 2
+            else:
+                text_io.write(value[idx])
+            idx += 1
         text_io.write(ctx.quote_character * 3)
 
     def render(

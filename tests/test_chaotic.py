@@ -11,13 +11,18 @@ from tests.common import CaseBase
 LOGGER = logging.getLogger(__name__)
 
 
-class ChaosTest(CaseBase):
-    def random_id(self, random_gen: random.Random, min_len: int = 5, max_len: int = 10):
-        return "".join(
-            random_gen.choice(string.ascii_letters + string.digits)
-            for _ in range(random_gen.randint(min_len, max_len))
-        )
+def random_id(random_gen: random.Random, min_len: int = 5, max_len: int = 10):
+    return "".join(
+        random_gen.choice(string.ascii_letters + string.digits)
+        for _ in range(random_gen.randint(min_len, max_len))
+    )
 
+
+def random_kv_pair(random_gen: random.Random):
+    return f"{random_id(random_gen)}={random_id(random_gen)}"
+
+
+class ChaosTest(CaseBase):
     def create_document_chaotic(
         self,
         random_gen: random.Random,
@@ -25,12 +30,13 @@ class ChaosTest(CaseBase):
     ):
         tokens = {
             "new_line": lambda: "\n",
-            "random_identifier": lambda: self.random_id(random_gen),
+            "random_identifier": lambda: random_id(random_gen),
             "eq": lambda: "=",
             "whitespace": lambda: " ",
             "quote": lambda: '"',
             "comment": lambda: "#",
-            "section_header": lambda: f"[{self.random_id(random_gen)}]",
+            "section_header": lambda: f"[{random_id(random_gen)}]",
+            "key_value_pair": lambda: random_kv_pair(random_gen) + "\n",
         }
 
         path = self.get_temp_path()
